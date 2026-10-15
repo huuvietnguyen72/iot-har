@@ -1,0 +1,1493 @@
+{
+  "scope": "public_dataset_model_replay_not_activity_validation",
+  "source_csv": "data/har_own_test/20261014T042223Z-e1354d0d.csv",
+  "quality": {
+    "rows": 6002,
+    "segments": 1,
+    "windows": 92,
+    "incomplete_tail_samples": -14,
+    "rejected_candidate_windows": 0,
+    "first_time_us": 505145756,
+    "last_time_us": 625165751
+  },
+  "labels": [
+    "lie",
+    "sit",
+    "stand",
+    "walk"
+  ],
+  "windows": [
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 24336,
+      "end_seq": 24463,
+      "start_time_us": 505145756,
+      "end_time_us": 507685751,
+      "prediction": "walk",
+      "probabilities": [
+        0.0031174993262837293,
+        0.03359244503893219,
+        0.27790921710018845,
+        0.6853808385345956
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 24400,
+      "end_seq": 24527,
+      "start_time_us": 506425756,
+      "end_time_us": 508965751,
+      "prediction": "walk",
+      "probabilities": [
+        0.006640203188657381,
+        0.007981198215423837,
+        0.05960506334764254,
+        0.9257735352482763
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 24464,
+      "end_seq": 24591,
+      "start_time_us": 507705756,
+      "end_time_us": 510245756,
+      "prediction": "walk",
+      "probabilities": [
+        0.007897668892865526,
+        0.006666666666666667,
+        0.03684026357773312,
+        0.9485954008627345
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 24528,
+      "end_seq": 24655,
+      "start_time_us": 508985751,
+      "end_time_us": 511525756,
+      "prediction": "walk",
+      "probabilities": [
+        0.007897668892865526,
+        0.007981198215423837,
+        0.03684026357773312,
+        0.9472808693139776
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 24592,
+      "end_seq": 24719,
+      "start_time_us": 510265756,
+      "end_time_us": 512805756,
+      "prediction": "walk",
+      "probabilities": [
+        0.006669876456629818,
+        0.006666666666666667,
+        0.03941054694768124,
+        0.9472529099290223
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 24656,
+      "end_seq": 24783,
+      "start_time_us": 511545751,
+      "end_time_us": 514085751,
+      "prediction": "walk",
+      "probabilities": [
+        0.007897668892865526,
+        0.006666666666666667,
+        0.034909944905431804,
+        0.950525719535036
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 24720,
+      "end_seq": 24847,
+      "start_time_us": 512825756,
+      "end_time_us": 515365751,
+      "prediction": "walk",
+      "probabilities": [
+        0.01935026086398581,
+        0.021918622837817394,
+        0.09912850426023367,
+        0.859602612037963
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 24784,
+      "end_seq": 24911,
+      "start_time_us": 514105751,
+      "end_time_us": 516645751,
+      "prediction": "walk",
+      "probabilities": [
+        0.007897668892865526,
+        0.006666666666666667,
+        0.03684026357773312,
+        0.9485954008627345
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 24848,
+      "end_seq": 24975,
+      "start_time_us": 515385751,
+      "end_time_us": 517925751,
+      "prediction": "walk",
+      "probabilities": [
+        0.007897668892865526,
+        0.006666666666666667,
+        0.043153821983745594,
+        0.9422818424567222
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 24912,
+      "end_seq": 25039,
+      "start_time_us": 516665751,
+      "end_time_us": 519205811,
+      "prediction": "walk",
+      "probabilities": [
+        0.007928092083565267,
+        0.008382387331338963,
+        0.05284342856980321,
+        0.9308460920152927
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 24976,
+      "end_seq": 25103,
+      "start_time_us": 517945751,
+      "end_time_us": 520485751,
+      "prediction": "walk",
+      "probabilities": [
+        0.006669876456629818,
+        0.006666666666666667,
+        0.042213330930894986,
+        0.9444501259458086
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 25040,
+      "end_seq": 25167,
+      "start_time_us": 519225752,
+      "end_time_us": 521765751,
+      "prediction": "walk",
+      "probabilities": [
+        0.007897668892865526,
+        0.006666666666666667,
+        0.04017359691106646,
+        0.9452620675294012
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 25104,
+      "end_seq": 25231,
+      "start_time_us": 520505751,
+      "end_time_us": 523045751,
+      "prediction": "walk",
+      "probabilities": [
+        0.006523577623998424,
+        0.019789291629368277,
+        0.0828537663406459,
+        0.8908333644059875
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 25168,
+      "end_seq": 25295,
+      "start_time_us": 521785751,
+      "end_time_us": 524325750,
+      "prediction": "stand",
+      "probabilities": [
+        0.03014600240499944,
+        0.03986435141430948,
+        0.6425977775826625,
+        0.2873918685980288
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 25232,
+      "end_seq": 25359,
+      "start_time_us": 523065751,
+      "end_time_us": 525605751,
+      "prediction": "walk",
+      "probabilities": [
+        0.022458718511121106,
+        0.029552058882124813,
+        0.2978609903358555,
+        0.6501282322708988
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 25296,
+      "end_seq": 25423,
+      "start_time_us": 524345750,
+      "end_time_us": 526885751,
+      "prediction": "walk",
+      "probabilities": [
+        0.007897668892865526,
+        0.007981198215423837,
+        0.048198547925509094,
+        0.9359225849662016
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 25360,
+      "end_seq": 25487,
+      "start_time_us": 525625756,
+      "end_time_us": 528165751,
+      "prediction": "walk",
+      "probabilities": [
+        0.007897668892865526,
+        0.006666666666666667,
+        0.042816640398847666,
+        0.9426190240416201
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 25424,
+      "end_seq": 25551,
+      "start_time_us": 526905751,
+      "end_time_us": 529445751,
+      "prediction": "walk",
+      "probabilities": [
+        0.007897668892865526,
+        0.006666666666666667,
+        0.04196611837185505,
+        0.9434695460686127
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 25488,
+      "end_seq": 25615,
+      "start_time_us": 528185751,
+      "end_time_us": 530725751,
+      "prediction": "walk",
+      "probabilities": [
+        0.007897668892865526,
+        0.006666666666666667,
+        0.04017359691106646,
+        0.9452620675294012
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 25552,
+      "end_seq": 25679,
+      "start_time_us": 529465751,
+      "end_time_us": 532005751,
+      "prediction": "walk",
+      "probabilities": [
+        0.01128887750045338,
+        0.010776636380747258,
+        0.034909944905431804,
+        0.9430245412133677
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 25616,
+      "end_seq": 25743,
+      "start_time_us": 530745751,
+      "end_time_us": 533285771,
+      "prediction": "walk",
+      "probabilities": [
+        0.009373796794749012,
+        0.007981198215423837,
+        0.04514960317777307,
+        0.9374954018120542
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 25680,
+      "end_seq": 25807,
+      "start_time_us": 532025751,
+      "end_time_us": 534565751,
+      "prediction": "walk",
+      "probabilities": [
+        0.006669876456629818,
+        0.007199383350462488,
+        0.0617879874167939,
+        0.9243427527761139
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 25744,
+      "end_seq": 25871,
+      "start_time_us": 533305754,
+      "end_time_us": 535845751,
+      "prediction": "walk",
+      "probabilities": [
+        0.006669876456629818,
+        0.006666666666666667,
+        0.04306996229437391,
+        0.9435934945823294
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 25808,
+      "end_seq": 25935,
+      "start_time_us": 534585751,
+      "end_time_us": 537125751,
+      "prediction": "walk",
+      "probabilities": [
+        0.006669876456629818,
+        0.006666666666666667,
+        0.04127744083358532,
+        0.9453860160431181
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 25872,
+      "end_seq": 25999,
+      "start_time_us": 535865751,
+      "end_time_us": 538405751,
+      "prediction": "walk",
+      "probabilities": [
+        0.011069093724911336,
+        0.01139917891151093,
+        0.040851114717770746,
+        0.9366806126458069
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 25936,
+      "end_seq": 26063,
+      "start_time_us": 537145751,
+      "end_time_us": 539685751,
+      "prediction": "walk",
+      "probabilities": [
+        0.010003209789963151,
+        0.006666666666666667,
+        0.04425205709131958,
+        0.9390780664520505
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 26000,
+      "end_seq": 26127,
+      "start_time_us": 538425751,
+      "end_time_us": 540965751,
+      "prediction": "stand",
+      "probabilities": [
+        0.010003998797662143,
+        0.01026591680952456,
+        0.6919223434477664,
+        0.28780774094504685
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 26064,
+      "end_seq": 26191,
+      "start_time_us": 539705751,
+      "end_time_us": 542245751,
+      "prediction": "walk",
+      "probabilities": [
+        0.007928092083565267,
+        0.008382387331338963,
+        0.04488238471694586,
+        0.9388071358681501
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 26128,
+      "end_seq": 26255,
+      "start_time_us": 540985751,
+      "end_time_us": 543525751,
+      "prediction": "walk",
+      "probabilities": [
+        0.007897668892865526,
+        0.006666666666666667,
+        0.03684026357773312,
+        0.9485954008627345
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 26192,
+      "end_seq": 26319,
+      "start_time_us": 542265751,
+      "end_time_us": 544805751,
+      "prediction": "walk",
+      "probabilities": [
+        0.006669876456629818,
+        0.006666666666666667,
+        0.043521945433879265,
+        0.9431415114428243
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 26256,
+      "end_seq": 26383,
+      "start_time_us": 543545751,
+      "end_time_us": 546085756,
+      "prediction": "walk",
+      "probabilities": [
+        0.006669876456629818,
+        0.01,
+        0.04102562731900445,
+        0.9423044962243655
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 26320,
+      "end_seq": 26447,
+      "start_time_us": 544825751,
+      "end_time_us": 547365751,
+      "prediction": "walk",
+      "probabilities": [
+        0.01128887750045338,
+        0.012707272218897546,
+        0.03684026357773312,
+        0.9391635867029159
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 26384,
+      "end_seq": 26511,
+      "start_time_us": 546105756,
+      "end_time_us": 548645751,
+      "prediction": "walk",
+      "probabilities": [
+        0.007897668892865526,
+        0.007981198215423837,
+        0.03769078560472574,
+        0.9464303472869848
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 26448,
+      "end_seq": 26575,
+      "start_time_us": 547385751,
+      "end_time_us": 549925751,
+      "prediction": "walk",
+      "probabilities": [
+        0.006669876456629818,
+        0.006666666666666667,
+        0.04077256252057032,
+        0.945890894356133
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 26512,
+      "end_seq": 26639,
+      "start_time_us": 548665756,
+      "end_time_us": 551205759,
+      "prediction": "walk",
+      "probabilities": [
+        0.006669876456629818,
+        0.008362745098039215,
+        0.0458768818239911,
+        0.9390904966213399
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 26576,
+      "end_seq": 26703,
+      "start_time_us": 549945751,
+      "end_time_us": 552485751,
+      "prediction": "walk",
+      "probabilities": [
+        0.007928092083565267,
+        0.008382387331338963,
+        0.04127744083358532,
+        0.9424120797515104
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 26640,
+      "end_seq": 26767,
+      "start_time_us": 551225756,
+      "end_time_us": 553765751,
+      "prediction": "walk",
+      "probabilities": [
+        0.007928092083565267,
+        0.006666666666666667,
+        0.0467627203828323,
+        0.9386425208669359
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 26704,
+      "end_seq": 26831,
+      "start_time_us": 552505751,
+      "end_time_us": 555045751,
+      "prediction": "walk",
+      "probabilities": [
+        0.007928092083565267,
+        0.008382387331338963,
+        0.04754903245644831,
+        0.9361404881286475
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 26768,
+      "end_seq": 26895,
+      "start_time_us": 553785756,
+      "end_time_us": 556325751,
+      "prediction": "walk",
+      "probabilities": [
+        0.007376627511482138,
+        0.012115684843815132,
+        0.06809491149676576,
+        0.9124127761479371
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 26832,
+      "end_seq": 26959,
+      "start_time_us": 555065751,
+      "end_time_us": 557605751,
+      "prediction": "walk",
+      "probabilities": [
+        0.00578731621937292,
+        0.008967377054175683,
+        0.06358132475294163,
+        0.9216639819735098
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 26896,
+      "end_seq": 27023,
+      "start_time_us": 556345751,
+      "end_time_us": 558885766,
+      "prediction": "walk",
+      "probabilities": [
+        0.006669876456629818,
+        0.006666666666666667,
+        0.042394463610917664,
+        0.9442689932657856
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 26960,
+      "end_seq": 27087,
+      "start_time_us": 557625756,
+      "end_time_us": 560165751,
+      "prediction": "walk",
+      "probabilities": [
+        0.006669876456629818,
+        0.008362745098039215,
+        0.043521945433879265,
+        0.9414454330114518
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 27024,
+      "end_seq": 27151,
+      "start_time_us": 558905758,
+      "end_time_us": 561445766,
+      "prediction": "walk",
+      "probabilities": [
+        0.006669876456629818,
+        0.008362745098039215,
+        0.04446243648672987,
+        0.940504941958601
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 27088,
+      "end_seq": 27215,
+      "start_time_us": 560185751,
+      "end_time_us": 562725751,
+      "prediction": "walk",
+      "probabilities": [
+        0.01128887750045338,
+        0.009373938885564214,
+        0.034909944905431804,
+        0.9444272387085505
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 27152,
+      "end_seq": 27279,
+      "start_time_us": 561465751,
+      "end_time_us": 564005751,
+      "prediction": "walk",
+      "probabilities": [
+        0.007897668892865526,
+        0.006666666666666667,
+        0.03641201959422849,
+        0.9490236448462392
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 27216,
+      "end_seq": 27343,
+      "start_time_us": 562745751,
+      "end_time_us": 565285751,
+      "prediction": "walk",
+      "probabilities": [
+        0.006669876456629818,
+        0.006666666666666667,
+        0.04344661082832974,
+        0.9432168460483736
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 27280,
+      "end_seq": 27407,
+      "start_time_us": 564025751,
+      "end_time_us": 566565751,
+      "prediction": "walk",
+      "probabilities": [
+        0.006669876456629818,
+        0.006666666666666667,
+        0.04306996229437391,
+        0.9435934945823294
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 27344,
+      "end_seq": 27471,
+      "start_time_us": 565305752,
+      "end_time_us": 567845751,
+      "prediction": "walk",
+      "probabilities": [
+        0.006669876456629818,
+        0.006666666666666667,
+        0.04928662686848039,
+        0.9373768300082232
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 27408,
+      "end_seq": 27535,
+      "start_time_us": 566585751,
+      "end_time_us": 569125751,
+      "prediction": "walk",
+      "probabilities": [
+        0.007897668892865526,
+        0.006666666666666667,
+        0.04716751240540426,
+        0.9382681520350634
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 27472,
+      "end_seq": 27599,
+      "start_time_us": 567865751,
+      "end_time_us": 570405756,
+      "prediction": "walk",
+      "probabilities": [
+        0.006669876456629818,
+        0.019782993904655623,
+        0.04847347705811203,
+        0.9250736525806025
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 27536,
+      "end_seq": 27663,
+      "start_time_us": 569145756,
+      "end_time_us": 571685756,
+      "prediction": "walk",
+      "probabilities": [
+        0.007897668892865526,
+        0.016371511605737226,
+        0.03684026357773312,
+        0.9388905559236643
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 27600,
+      "end_seq": 27727,
+      "start_time_us": 570425751,
+      "end_time_us": 572965751,
+      "prediction": "walk",
+      "probabilities": [
+        0.007897668892865526,
+        0.007981198215423837,
+        0.03684026357773312,
+        0.9472808693139776
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 27664,
+      "end_seq": 27791,
+      "start_time_us": 571705751,
+      "end_time_us": 574245751,
+      "prediction": "walk",
+      "probabilities": [
+        0.007897668892865526,
+        0.006666666666666667,
+        0.04017359691106646,
+        0.9452620675294012
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 27728,
+      "end_seq": 27855,
+      "start_time_us": 572985751,
+      "end_time_us": 575525751,
+      "prediction": "walk",
+      "probabilities": [
+        0.006669876456629818,
+        0.006666666666666667,
+        0.04127744083358532,
+        0.9453860160431181
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 27792,
+      "end_seq": 27919,
+      "start_time_us": 574265751,
+      "end_time_us": 576805751,
+      "prediction": "walk",
+      "probabilities": [
+        0.008604419947717847,
+        0.006666666666666667,
+        0.04221793188643592,
+        0.9425109814991796
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 27856,
+      "end_seq": 27983,
+      "start_time_us": 575545751,
+      "end_time_us": 578085752,
+      "prediction": "walk",
+      "probabilities": [
+        0.009892145924426478,
+        0.008382387331338963,
+        0.04110267082845111,
+        0.9406227959157836
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 27920,
+      "end_seq": 28047,
+      "start_time_us": 576825751,
+      "end_time_us": 579365751,
+      "prediction": "walk",
+      "probabilities": [
+        0.009373796794749012,
+        0.006666666666666667,
+        0.038884598553102584,
+        0.9450749379854816
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 27984,
+      "end_seq": 28111,
+      "start_time_us": 578105752,
+      "end_time_us": 580645751,
+      "prediction": "walk",
+      "probabilities": [
+        0.007897668892865526,
+        0.007981198215423837,
+        0.03684026357773312,
+        0.9472808693139776
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 28048,
+      "end_seq": 28175,
+      "start_time_us": 579385751,
+      "end_time_us": 581925751,
+      "prediction": "walk",
+      "probabilities": [
+        0.006669876456629818,
+        0.007981198215423837,
+        0.04610905332922969,
+        0.9392398719987166
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 28112,
+      "end_seq": 28239,
+      "start_time_us": 580665751,
+      "end_time_us": 583205756,
+      "prediction": "walk",
+      "probabilities": [
+        0.006669876456629818,
+        0.006666666666666667,
+        0.0468552787672126,
+        0.9398081781094909
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 28176,
+      "end_seq": 28303,
+      "start_time_us": 581945751,
+      "end_time_us": 584485798,
+      "prediction": "walk",
+      "probabilities": [
+        0.006669876456629818,
+        0.010161840334557812,
+        0.04545300266816559,
+        0.9377152805406468
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 28240,
+      "end_seq": 28367,
+      "start_time_us": 583225756,
+      "end_time_us": 585765751,
+      "prediction": "walk",
+      "probabilities": [
+        0.006669876456629818,
+        0.010161840334557812,
+        0.05159847520651294,
+        0.9315698080022994
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 28304,
+      "end_seq": 28431,
+      "start_time_us": 584505756,
+      "end_time_us": 587045756,
+      "prediction": "walk",
+      "probabilities": [
+        0.006669876456629818,
+        0.012295400269014711,
+        0.06055931544744793,
+        0.9204754078269074
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 28368,
+      "end_seq": 28495,
+      "start_time_us": 585785751,
+      "end_time_us": 588325751,
+      "prediction": "walk",
+      "probabilities": [
+        0.007897668892865526,
+        0.007347417840375587,
+        0.038632785038521716,
+        0.9461221282282373
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 28432,
+      "end_seq": 28559,
+      "start_time_us": 587065751,
+      "end_time_us": 589605756,
+      "prediction": "walk",
+      "probabilities": [
+        0.012364132482664872,
+        0.014867308749539149,
+        0.034909944905431804,
+        0.9378586138623641
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 28496,
+      "end_seq": 28623,
+      "start_time_us": 588345751,
+      "end_time_us": 590885751,
+      "prediction": "walk",
+      "probabilities": [
+        0.01128887750045338,
+        0.010776636380747258,
+        0.034909944905431804,
+        0.9430245412133677
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 28560,
+      "end_seq": 28687,
+      "start_time_us": 589625751,
+      "end_time_us": 592165751,
+      "prediction": "walk",
+      "probabilities": [
+        0.007897668892865526,
+        0.006666666666666667,
+        0.04971230284314536,
+        0.9357233615973223
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 28624,
+      "end_seq": 28751,
+      "start_time_us": 590905751,
+      "end_time_us": 593445751,
+      "prediction": "walk",
+      "probabilities": [
+        0.007928092083565267,
+        0.010106034054985686,
+        0.04127744083358532,
+        0.9406884330278638
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 28688,
+      "end_seq": 28815,
+      "start_time_us": 592185751,
+      "end_time_us": 594725762,
+      "prediction": "walk",
+      "probabilities": [
+        0.009155884519800976,
+        0.010106034054985686,
+        0.04221793188643592,
+        0.9385201495387776
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 28752,
+      "end_seq": 28879,
+      "start_time_us": 593465751,
+      "end_time_us": 596005751,
+      "prediction": "walk",
+      "probabilities": [
+        0.007479627088685108,
+        0.006666666666666667,
+        0.008235623455143533,
+        0.9776180827895047
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 28816,
+      "end_seq": 28943,
+      "start_time_us": 594745751,
+      "end_time_us": 597285751,
+      "prediction": "walk",
+      "probabilities": [
+        0.0062518346524494004,
+        0.006666666666666667,
+        0.007295132402292931,
+        0.9797863662785911
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 28880,
+      "end_seq": 29007,
+      "start_time_us": 596025751,
+      "end_time_us": 598565751,
+      "prediction": "walk",
+      "probabilities": [
+        0.00863393029749103,
+        0.0077592088957642,
+        0.04882266297679052,
+        0.9347841978299543
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 28944,
+      "end_seq": 29071,
+      "start_time_us": 597305751,
+      "end_time_us": 599845751,
+      "prediction": "walk",
+      "probabilities": [
+        0.017787495906134564,
+        0.030378094910742597,
+        0.3949953983561644,
+        0.5568390108269585
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 29008,
+      "end_seq": 29135,
+      "start_time_us": 598585751,
+      "end_time_us": 601125751,
+      "prediction": "walk",
+      "probabilities": [
+        0.007897668892865526,
+        0.006666666666666667,
+        0.03684026357773312,
+        0.9485954008627345
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 29072,
+      "end_seq": 29199,
+      "start_time_us": 599865751,
+      "end_time_us": 602405751,
+      "prediction": "walk",
+      "probabilities": [
+        0.006669876456629818,
+        0.006666666666666667,
+        0.043521945433879265,
+        0.9431415114428243
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 29136,
+      "end_seq": 29263,
+      "start_time_us": 601145751,
+      "end_time_us": 603685751,
+      "prediction": "walk",
+      "probabilities": [
+        0.006669876456629818,
+        0.006666666666666667,
+        0.04503125435669542,
+        0.9416322025200082
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 29200,
+      "end_seq": 29327,
+      "start_time_us": 602425751,
+      "end_time_us": 604965751,
+      "prediction": "walk",
+      "probabilities": [
+        0.0012261904498038789,
+        0.0016421323143651508,
+        0.05054897615231098,
+        0.94658270108352
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 29264,
+      "end_seq": 29391,
+      "start_time_us": 603705751,
+      "end_time_us": 606245751,
+      "prediction": "walk",
+      "probabilities": [
+        0.0008081486456234609,
+        0.0,
+        0.01693937300693415,
+        0.9822524783474423
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 29328,
+      "end_seq": 29455,
+      "start_time_us": 604985777,
+      "end_time_us": 607525751,
+      "prediction": "walk",
+      "probabilities": [
+        0.0008081486456234609,
+        0.002788620660470081,
+        0.02429130491185282,
+        0.9721119257820535
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 29392,
+      "end_seq": 29519,
+      "start_time_us": 606265751,
+      "end_time_us": 608805751,
+      "prediction": "stand",
+      "probabilities": [
+        0.0047352152981215085,
+        0.0059944845395719995,
+        0.5474262726522336,
+        0.4418440275100727
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 29456,
+      "end_seq": 29583,
+      "start_time_us": 607545751,
+      "end_time_us": 610085762,
+      "prediction": "stand",
+      "probabilities": [
+        0.005206062056551941,
+        0.004574820464205917,
+        0.7327117798967105,
+        0.25750733758253175
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 29520,
+      "end_seq": 29647,
+      "start_time_us": 608825751,
+      "end_time_us": 611365752,
+      "prediction": "stand",
+      "probabilities": [
+        0.0060817281252455125,
+        0.0020855732002001306,
+        0.5078369732165277,
+        0.4839957254580267
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 29584,
+      "end_seq": 29711,
+      "start_time_us": 610105751,
+      "end_time_us": 612645756,
+      "prediction": "walk",
+      "probabilities": [
+        0.0012261904498038789,
+        0.004959705551709783,
+        0.08044645295680505,
+        0.9133676510416814
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 29648,
+      "end_seq": 29775,
+      "start_time_us": 611385751,
+      "end_time_us": 613925751,
+      "prediction": "walk",
+      "probabilities": [
+        0.0012261904498038789,
+        0.0,
+        0.04186784056598204,
+        0.9569059689842141
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 29712,
+      "end_seq": 29839,
+      "start_time_us": 612665756,
+      "end_time_us": 615205751,
+      "prediction": "walk",
+      "probabilities": [
+        0.0012261904498038789,
+        0.0042660141962719885,
+        0.07609477416884843,
+        0.9184130211850758
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 29776,
+      "end_seq": 29903,
+      "start_time_us": 613945751,
+      "end_time_us": 616485801,
+      "prediction": "walk",
+      "probabilities": [
+        0.001962451854429383,
+        0.0,
+        0.043741592955518965,
+        0.9542959551900516
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 29840,
+      "end_seq": 29967,
+      "start_time_us": 615225751,
+      "end_time_us": 617765802,
+      "prediction": "walk",
+      "probabilities": [
+        0.0074061378612553215,
+        0.006666666666666667,
+        0.04281689749593978,
+        0.9431102979761382
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 29904,
+      "end_seq": 30031,
+      "start_time_us": 616505751,
+      "end_time_us": 619045751,
+      "prediction": "walk",
+      "probabilities": [
+        0.0074061378612553215,
+        0.007981198215423837,
+        0.040146861582607,
+        0.9444658023407139
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 29968,
+      "end_seq": 30095,
+      "start_time_us": 617785751,
+      "end_time_us": 620325751,
+      "prediction": "walk",
+      "probabilities": [
+        0.00863393029749103,
+        0.006666666666666667,
+        0.04003579969955373,
+        0.9446636033362885
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 30032,
+      "end_seq": 30159,
+      "start_time_us": 619065751,
+      "end_time_us": 621605756,
+      "prediction": "walk",
+      "probabilities": [
+        0.003336543123296485,
+        0.0,
+        0.044358960652337784,
+        0.9523044962243655
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 30096,
+      "end_seq": 30223,
+      "start_time_us": 620345751,
+      "end_time_us": 622885784,
+      "prediction": "walk",
+      "probabilities": [
+        0.003336543123296485,
+        0.0,
+        0.03923310585821586,
+        0.9574303510184876
+      ]
+    },
+    {
+      "session_id": "20261014T042223Z-e1354d0d",
+      "stream_id": "726b1e00f0e23f9a",
+      "label": "walk",
+      "start_seq": 30160,
+      "end_seq": 30287,
+      "start_time_us": 621625756,
+      "end_time_us": 624165751,
+      "prediction": "walk",
+      "probabilities": [
+        0.003336543123296485,
+        0.0,
+        0.03923310585821586,
+        0.9574303510184876
+      ]
+    }
+  ]
+}

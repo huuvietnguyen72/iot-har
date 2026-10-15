@@ -1,0 +1,48 @@
+{
+  "protocol_version": 1,
+  "session_id": "20261014T043804Z-11560071",
+  "label": "stand",
+  "status": "completed",
+  "started_utc": "2026-10-14T04:38:04Z",
+  "finished_utc": "2026-10-14T04:40:04Z",
+  "transport": "tcp",
+  "endpoint": "192.168.12.2:8765",
+  "port": null,
+  "baud": null,
+  "requested_duration_s": 120.0,
+  "stream_id": "726b1e00f0e23f9a",
+  "csv_file": "20261014T043804Z-11560071.csv",
+  "sensor_config": {
+    "accel_range_g": 4,
+    "gyro_range_dps": 500,
+    "dlpf": 3,
+    "internal_sample_rate_hz": 100,
+    "output_interval_ms": 20
+  },
+  "firmware_counters_first": {
+    "stream_id": "726b1e00f0e23f9a",
+    "queue_dropped_total": 0,
+    "unobserved_total": 0,
+    "host_since_open_s": 0.027186
+  },
+  "firmware_counters_last": {
+    "stream_id": "726b1e00f0e23f9a",
+    "queue_dropped_total": 0,
+    "unobserved_total": 0,
+    "host_since_open_s": 119.660183
+  },
+  "telemetry_errors": 0,
+  "stats": {
+    "samples_written": 6002,
+    "data_errors": 0,
+    "oversize_lines": 0,
+    "missing_by_seq": 0,
+    "duplicates": 0,
+    "out_of_order": 0,
+    "timestamp_errors": 0,
+    "max_gap_us": 20063,
+    "gaps_over_40ms": 0,
+    "device_span_s": 120.019957,
+    "sample_rate_hz": 50.0
+  }
+}

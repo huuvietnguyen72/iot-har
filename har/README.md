@@ -49,9 +49,19 @@ tương thích, rồi chạy `unittest` và `benchmark`.
 
 ## Dữ liệu riêng — bước 3B (`train-own`)
 
-Thu theo `docs/superpowers/specs/2026-10-13-har-own-data-design.md` mục 2: buổi train
-4 phiên × 120 s mỗi hoạt động vào `data/har_own/train/`, buổi test (khác buổi) 2 phiên
-mỗi hoạt động vào `data/har_own/test/`; nhãn `walk|sit|stand|lie`.
+Dữ liệu đã thu có sẵn trong repo: `data/har_own/train/` (buổi 2026-10-13) và
+`data/har_own/test/` (buổi 2026-10-14). Muốn thu lại:
+
+- Buổi train 4 phiên × 120 s mỗi hoạt động vào `data/har_own/train/`; buổi test **khác ngày**
+  2 phiên mỗi hoạt động vào `data/har_own/test/`; nhãn `walk|sit|stand|lie`.
+- Trong một buổi thu xen kẽ walk → sit → stand → lie, không thu cùng hoạt động liên tiếp.
+- Bật ESP32 khi cảm biến nằm yên trên bàn, chờ `[CAL] DONE` rồi mới đeo.
+- Luôn đeo cùng vị trí và hướng: hông phải ở thắt lưng, mặt chip hướng ra ngoài, cổng USB chúc xuống.
+- Mỗi phiên: vào tư thế rồi chạy
+  `python3 -m collector --tcp <ESP_IP>:8765 --duration 120 --label walk --output data/har_own/train`;
+  tháo cảm biến sau mỗi phiên.
+
+Huấn luyện lại (`--compare-run` là tùy chọn, chấm thêm một mô hình có sẵn trên cùng buổi test):
 
 ```powershell
 & ".\.venv-har\Scripts\python.exe" -m har train-own --train-dir data/har_own/train `
@@ -66,7 +76,7 @@ mỗi hoạt động vào `data/har_own/test/`; nhãn `walk|sit|stand|lie`.
 
 ## Demo trực tiếp / phát lại (`demo`, `live`)
 
-Đặc tả: `docs/superpowers/specs/2026-10-14-har-live-demo-design.md`. Không cần cài thêm gói
+Không cần cài thêm gói
 (web server dùng thư viện chuẩn). Trên Pi4 chạy từ `~/har-baseline` (cần cả `har/` và `collector/`).
 Tham số thêm: `demo --host/--port` (mặc định `0.0.0.0:8080`), `fake-esp32 --speed` (mặc định 1.0).
 

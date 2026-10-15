@@ -1,10 +1,57 @@
-# ESP32 + MPU6050: thu dữ liệu USB 50 Hz và hiệu chỉnh gyro
+# IoT HAR — nhận diện hoạt động người bằng ESP32 + MPU6050
+
+Đeo cảm biến quán tính MPU6050 ở eo; ESP32 lấy mẫu 50 Hz và gửi qua USB hoặc Wi-Fi tới
+Raspberry Pi 4; Pi4 chạy mô hình **Random Forest** để nhận diện **đi bộ (walk), ngồi (sit),
+đứng (stand), nằm (lie)** gần thời gian thực (một kết luận mỗi 1,28 s) và hiển thị trên trang web.
+
+```text
+MPU6050 ──I2C──► ESP32 ── Wi-Fi TCP 8765 (DATA 50 Hz) ──► Raspberry Pi 4 ──► trình duyệt :8080
+                 (src/)                                    (collector/, har/)
+```
+
+| Thư mục | Chạy ở | Nội dung |
+| --- | --- | --- |
+| `src/`, `test/` | ESP32 | Firmware PlatformIO: đọc MPU6050, hiệu chỉnh gyro, phát qua USB/Wi-Fi; test C++ chạy trên máy tính |
+| `collector/` | Pi4 | Thu một phiên có nhãn ra CSV + JSON, thống kê chất lượng truyền |
+| `har/` | Laptop, Pi4 | Cắt cửa sổ, trích 70 đặc trưng, huấn luyện/đánh giá Random Forest, demo trực tiếp/phát lại |
+| `data/har_own/` | — | Dữ liệu tự thu: 17 phiên train + 8 phiên test, 120 s/phiên |
+| `har_runs/own_rf_01/` | — | Mô hình đã huấn luyện kèm báo cáo đánh giá và benchmark |
+
+## Kết quả
+
+| Thí nghiệm | Macro-F1 test | Ghi chú |
+| --- | ---: | --- |
+| Random Forest trên dữ liệu MPU6050 tự thu (`own_rf_01`) | **0.975** | Test là buổi thu khác ngày với train; 1 người |
+| Random Forest trên UCI HAR (dữ liệu smartphone công khai) | 0.931 | Chia theo người |
+| Mô hình UCI chấm trên dữ liệu MPU6050 | 0.106 | Gần bằng Dummy (0.100) → cần dữ liệu riêng |
+
+Suy luận một cửa sổ trên Pi4: p95 khoảng 41 ms (ngưỡng 1,28 s). Chi tiết theo lớp và
+confusion matrix: [`har_runs/own_rf_01/report.md`](har_runs/own_rf_01/report.md).
+
+Giới hạn: dữ liệu của **một người**, cùng một cách đeo; chưa có lớp lên/xuống cầu thang.
+
+## Chạy thử nhanh không cần phần cứng
+
+Dùng ESP32 giả phát lại một phiên đã thu, rồi mở `http://127.0.0.1:8080`
+(Windows, Python 3.13; Linux thay đường dẫn `python` tương ứng):
+
+```powershell
+py -3.13 -m venv .venv-har
+& ".\.venv-har\Scripts\python.exe" -m pip install -r requirements-har.txt
+& ".\.venv-har\Scripts\python.exe" -m har fake-esp32 --csv data/har_own/test/20261014T042223Z-e1354d0d.csv --port 8765
+# cửa sổ terminal khác:
+& ".\.venv-har\Scripts\python.exe" -m har demo --run-dir har_runs/own_rf_01 --esp 127.0.0.1:8765 --data-dir data/har_own --host 127.0.0.1
+```
+
+Các phần dưới đây mô tả từng bước của dự án theo thứ tự thực hiện.
+
+## Bước 1 — thu dữ liệu USB 50 Hz và hiệu chỉnh gyro
 
 Firmware hiệu chỉnh gyro lúc khởi động rồi phát bản ghi `DATA` khoảng **50 Hz** qua USB 115200.
 Gói Python `collector` (chạy trên Raspberry Pi 4, Debian 12, Python 3.11) lưu từng phiên ra
 **CSV + JSON** kèm số liệu chất lượng truyền.
 
-## Phần cứng và nạp firmware
+### Phần cứng và nạp firmware
 
 - MPU6050: VCC=3V3, GND=GND, SDA=GPIO21, SCL=GPIO22, AD0=GND (địa chỉ 0x68).
 - Build/Upload bằng PlatformIO. Trên Windows, `platformio.ini` đã đặt `build_dir` vào
@@ -13,7 +60,7 @@ Gói Python `collector` (chạy trên Raspberry Pi 4, Debian 12, Python 3.11) l�
 - Giữ cảm biến cố định khi khởi động: hiệu chỉnh cần 2 giây ổn định + 500 mẫu (~5 giây).
   Nếu bị từ chối, chương trình tự thử lại sau 3 giây.
 
-## Giao thức v1 (115200 baud, mỗi dòng một bản ghi)
+### Giao thức v1 (115200 baud, mỗi dòng một bản ghi)
 
 ```text
 DATA,1,7a31b25c809fd416,12,8340000,-0.921,0.051,0.132,0.120,-0.080,0.050,29.40
@@ -27,7 +74,7 @@ DATA,1,7a31b25c809fd416,12,8340000,-0.921,0.051,0.132,0.120,-0.080,0.050,29.40
 - Các dòng `[SCAN]`, `[CAL]`, `[ID]`, `[READY]`, `[TEST]`, `[RETRY]`, `[ERROR]` là thông báo,
   không phải bản ghi dữ liệu.
 
-## Cài đặt bộ thu trên Pi4
+### Cài đặt bộ thu trên Pi4
 
 ```bash
 sudo apt update
@@ -40,7 +87,7 @@ Chép gói `collector` sang Pi4 (chạy trên laptop, PowerShell; thay `<IP>`):
 scp -r .\collector pi@<IP>:~/collector
 ```
 
-## Chạy một phiên thu (trên Pi4 qua SSH)
+### Chạy một phiên thu (trên Pi4 qua SSH)
 
 ```bash
 cd ~
@@ -55,7 +102,7 @@ python3 -m collector --port /dev/ttyUSB0 --duration 60 --label test
 
 Nếu lỗi `Permission denied`, chạy `sudo usermod -aG dialout "$USER"`, đăng nhập SSH lại.
 
-## Tệp kết quả
+### Tệp kết quả
 
 - `<session_id>.csv`: `session_id,label,stream_id,seq,device_time_us,host_elapsed_s,ax_g,ay_g,az_g,gx_dps,gy_dps,gz_dps,temp_c`.
 - `<session_id>.json`: phiên bản giao thức, nhãn, trạng thái kết thúc, cổng/baud, thời lượng
@@ -68,28 +115,7 @@ Nếu lỗi `Permission denied`, chạy `sudo usermod -aG dialout "$USER"`, đă
 Mã thoát CLI: 0 completed; 130 interrupted; 3 không nhận được dữ liệu; 4 stream đổi giữa chừng
 (ESP32 reset/hiệu chỉnh lại — chạy phiên mới); 5 lỗi cổng serial; 6 lỗi vào/ra tệp; 2 lỗi tham số.
 
-## Kiểm tra phần mềm
-
-Build firmware (PlatformIO, từ đường dẫn ASCII):
-
-```text
-pio run
-```
-
-Test host C++ (calibration + data stream):
-
-```text
-g++ -std=c++11 -Wall -Wextra -Werror test/calibration_test.cpp -o calibration-test
-g++ -std=c++11 -Wall -Wextra -Werror test/data_stream_test.cpp -o data-stream-test
-```
-
-Test Python (không cần pyserial; chạy từ thư mục `esp32-test`):
-
-```text
-python3 -m unittest discover -s collector/tests -t . -v
-```
-
-## Nghiệm thu trên thiết bị (60 giây)
+### Nghiệm thu trên thiết bị (60 giây)
 
 1. Nạp firmware; cắm ESP32 vào Pi4; chạy collector; giữ cảm biến cố định tới hết `[CAL] DONE`.
 2. Mục tiêu: tốc độ 49–51 Hz từ timestamp thiết bị (khoảng 2.940–3.060 mẫu/60 giây);
@@ -132,25 +158,55 @@ python3 -m collector --discover --duration 60 --label test --output data   # c�
 - ESP32 vẫn giữ nhịp lấy mẫu 50 Hz khi mạng chậm; mẫu bị bỏ được báo qua NET.
 - Mất Wi-Fi hoặc ESP32 reset: phiên kết thúc `connection_lost`/`no_data`, dữ liệu đã ghi được giữ.
 - Nguồn tạm thời: cấp ESP32 từ USB; khi đeo ở eo cần pin dự phòng 5V.
-- Tiêu chí nghiệm thu chi tiết: `docs/superpowers/specs/2026-10-10-mpu6050-wifi-acceptance.md`.
+- Nghiệm thu thực tế: ở cả mạng nhà và hotspot iPhone, phiên 60 s đạt 50 Hz, không mất mẫu;
+  ESP32 tự chuyển sang hotspot khi mạng nhà mất.
 
 ## Bước 3A — Baseline nhận diện hoạt động (dữ liệu công khai)
 
 Package `har/` dựng pipeline nhận diện `walk/sit/stand/lie` bằng dữ liệu UCI HAR
 với mô hình **Random Forest** (chọn cấu hình bằng GroupKFold theo người), huấn luyện
-trên laptop và thử suy luận trên Pi4. Xem `har/README.md`. Đặc tả:
-`docs/superpowers/specs/2026-10-12-har-public-baseline-design.md`. Kết quả hiện tại
-(macro-F1 test 0.9306 trên UCI; benchmark Pi4 p95 39.7 ms):
-`docs/superpowers/evidence/2026-10-12-har-public-baseline.md`.
+trên laptop và thử suy luận trên Pi4. Kết quả: macro-F1 test 0.9306 trên UCI; benchmark
+Pi4 p95 39.7 ms. Lệnh: [`har/README.md`](har/README.md).
 
-## Bước 3B — Nhận diện trên dữ liệu MPU6050 của bạn (1 người)
+## Bước 3B — Nhận diện trên dữ liệu MPU6050 tự thu (1 người)
 
-Thu dữ liệu có nhãn và huấn luyện lại bằng `har train-own`. Quy trình thu (hiệu chỉnh trên
-bàn, hướng đeo, xen kẽ hoạt động, buổi test riêng) và tiêu chí nghiệm thu:
-`docs/superpowers/specs/2026-10-13-har-own-data-design.md`. Lệnh: `har/README.md`.
+Thu dữ liệu có nhãn và huấn luyện lại bằng `har train-own`. Dữ liệu đã thu nằm trong
+`data/har_own/`, mô hình kết quả trong `har_runs/own_rf_01/`. Quy trình thu và lệnh:
+[`har/README.md`](har/README.md).
 
 ## Demo — nhận diện walk/sit/stand/lie (trực tiếp và phát lại)
 
 Pi4 đọc ESP32, chạy mô hình `har_runs/own_rf_01` và phục vụ trang web `http://<IP-Pi4>:8080`;
 có chế độ phát lại CSV đã ghi khi không có cảm biến. Lệnh và lưu ý: `har/README.md`
 (mục "Demo trực tiếp / phát lại").
+
+## Kiểm tra phần mềm
+
+Chạy từ thư mục gốc của repo.
+
+Build firmware (PlatformIO; đường dẫn build đã đặt trong `platformio.ini`):
+
+```text
+pio run -e esp32dev
+pio run -e esp32dev_wifi
+```
+
+Test C++ chạy trên máy tính (cần `g++`):
+
+```bash
+for t in calibration data_stream net_protocol; do
+  g++ -std=c++11 -Wall -Wextra -Werror test/${t}_test.cpp -o ${t}_test && ./${t}_test
+done
+```
+
+Test Python (`collector` không cần pyserial; `har` cần các gói trong `requirements-har.txt`):
+
+```text
+python -m unittest discover -s collector/tests -t . -v
+python -m unittest discover -s har/tests -t . -v
+```
+
+## Giấy phép
+
+Mã nguồn phát hành theo giấy phép MIT — xem [`LICENSE`](LICENSE). Dữ liệu UCI HAR dùng trong
+bước 3A thuộc giấy phép CC BY 4.0 (không kèm trong repo, tải bằng `har prepare`).

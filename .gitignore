@@ -1,8 +1,11 @@
 .pio
 .venv-har/
-data/
+data/*
+!data/har_own/
 har_data/
-har_runs/
+har_runs/*
+!har_runs/own_rf_01/
+docs/
 __pycache__/
 src/wifi_secrets.h
 .vscode/.browse.c_cpp.db*
