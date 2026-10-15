@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nhận diện hoạt động</title>
+<style>
+:root { --bg:#f6f7f9; --card:#ffffff; --text:#1d232b; --muted:#66707c; --line:#d9dee4;
+  --walk:#237a52; --sit:#2f6bc0; --stand:#9a6512; --lie:#7a4dbb; --warn:#b5482d;
+  --walk-t:#237a52; --sit-t:#2f6bc0; --stand-t:#9a6512; --lie-t:#7a4dbb; --err:#b5482d; }
+@media (prefers-color-scheme: dark) {
+  :root { --bg:#14171b; --card:#1d2127; --text:#e8ecf0; --muted:#9aa4af; --line:#333a43;
+    --walk-t:#4cc38a; --sit-t:#6ea6f0; --stand-t:#e0a84a; --lie-t:#b48ce8; --err:#ff8a70; }
+}
+* { box-sizing:border-box; }
+body { margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  background:var(--bg); color:var(--text); }
+header { display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding:12px 16px;
+  border-bottom:1px solid var(--line); background:var(--card); }
+header h1 { font-size:18px; margin:0 12px 0 0; }
+button, select { font:inherit; padding:6px 12px; border-radius:6px; border:1px solid var(--line);
+  background:var(--card); color:var(--text); cursor:pointer; }
+button.active { background:var(--text); color:var(--card); }
+#status-line { margin-left:auto; color:var(--muted); font-size:14px; }
+#notice { padding:8px 16px; background:var(--warn); color:#fff; display:none; }
+main { display:grid; grid-template-columns:minmax(260px,1fr) 2fr; gap:16px; padding:16px; }
+@media (max-width:760px) { main { grid-template-columns:1fr; } #status-line { margin-left:0; } }
+.card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; min-width:0; }
+.wide { grid-column:1 / -1; }
+#state { text-align:center; }
+#state-icon { font-size:72px; line-height:1.1; }
+#state-name { font-size:34px; font-weight:700; margin-top:4px; }
+#state-conf { color:var(--muted); margin-top:4px; min-height:1.2em; }
+#state-uncertain { display:none; margin-top:6px; padding:2px 8px; border-radius:10px;
+  background:var(--line); color:var(--muted); font-size:13px; }
+.prob { display:grid; grid-template-columns:64px 1fr 44px; gap:8px; align-items:center;
+  margin-top:8px; font-size:14px; text-align:left; }
+.bar { height:10px; border-radius:5px; background:var(--line); overflow:hidden; }
+.bar > div { height:100%; width:0; transition:width .3s; }
+#chart { width:100%; height:200px; display:block; color:var(--text); }
+.legend { font-size:13px; color:var(--muted); }
+.strip { display:flex; height:28px; border-radius:6px; overflow:hidden; background:var(--line); margin-top:6px; }
+.strip > div { min-width:0; color:#fff; font-size:12px; white-space:nowrap; overflow:hidden; padding:6px 0 0; text-indent:4px; }
+#replay-panel { display:none; gap:12px; flex-wrap:wrap; align-items:center; }
+#replay-error { color:var(--err); }
+#accuracy-note { color:var(--muted); font-size:13px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Nhận diện hoạt động · MPU6050</h1>
+  <button id="btn-live">Trực tiếp</button>
+  <button id="btn-replay">Phát lại</button>
+  <span id="status-line">Đang kết nối tới Pi4…</span>
+</header>
+<div id="notice" role="status" aria-live="polite"></div>
+<main>
+  <section class="card wide" id="replay-panel">
+    <label>Phiên <select id="replay-session"></select></label>
+    <label>Tốc độ <select id="replay-speed"><option value="1">1×</option><option value="2">2×</option><option value="4">4×</option></select></label>
+    <button id="replay-start" disabled>Phát</button>
+    <span id="replay-error"></span>
+  </section>
+  <section class="card" id="state">
+    <div id="state-icon">…</div>
+    <div id="state-name" role="status" aria-live="polite">Đang thu tín hiệu…</div>
+    <div id="state-conf"></div>
+    <div id="state-uncertain">không chắc</div>
+    <div id="probs"></div>
+  </section>
+  <section class="card">
+    <div class="legend">Gia tốc 10 s gần nhất (g):
+      <span style="color:#d64545">■ X</span> <span style="color:#2f9e6b">■ Y</span> <span style="color:#3b7dd8">■ Z</span></div>
+    <svg id="chart" role="img" aria-label="Biểu đồ gia tốc X, Y, Z 10 giây gần nhất" viewBox="0 0 1000 200" preserveAspectRatio="none"></svg>
+  </section>
+  <section class="card wide">
+    <div class="legend">Lịch sử dự đoán</div>
+    <div class="strip" id="history-pred"></div>
+    <div id="true-block" style="display:none">
+      <div class="legend" style="margin-top:10px">Nhãn thật</div>
+      <div class="strip" id="history-true"></div>
+      <div style="margin-top:8px">Accuracy cộng dồn: <b id="accuracy">–</b>
+        <span id="accuracy-note">— phát lại không bỏ 5 s đầu/cuối như lúc đánh giá nên có thể thấp hơn 0.975.</span></div>
+    </div>
+  </section>
+</main>
+<script>
+"use strict";
+const NAMES = {walk: "Đi bộ", sit: "Ngồi", stand: "Đứng", lie: "Nằm"};
+const ICONS = {walk: "🚶", sit: "🪑", stand: "🧍", lie: "🛌"};
+const STEP_S = 1.28;
+const CHART_S = 10;
+const STATE_TEXT = {
+  starting: () => "Đang khởi động…",
+  connecting: s => `Đang tìm ESP32 (${s.endpoint || "?"})… lần thử ${s.attempt}`,
+  calibrating: () => "ESP32 đang hiệu chỉnh — để yên trên bàn",
+  streaming: () => "Đang nhận dữ liệu",
+  lost: () => "Mất kết nối — đang thử lại",
+  busy: () => "ESP32 đang bận — tắt collector hoặc chương trình khác đang đọc",
+  replaying: s => `Đang phát lại ${s.session || ""} (${s.speed}×)`,
+  finished: () => "Đã phát xong",
+  error: s => "Lỗi: " + (s.message || ""),
+};
+let labels = ["walk", "sit", "stand", "lie"];
+let status = {};
+let history = [];
+let lastIndex = -1;
+let samples = [];
+let restartsSeen = null;
+let restartNoticeUntil = 0;
+let replayOpen = false;
+let loadingSessions = false;
+let sessionsRetryAt = 0;
+let startBusy = false;
+let speedApplied = null;
+
+const $ = id => document.getElementById(id);
+let colors = {};
+let textColors = {};
+function cacheColors() {
+  const cs = getComputedStyle(document.documentElement);
+  colors = {}; textColors = {};
+  for (const l of Object.keys(NAMES)) {
+    colors[l] = cs.getPropertyValue("--" + l).trim() || "#888";
+    textColors[l] = cs.getPropertyValue("--" + l + "-t").trim() || colors[l];
+  }
+}
+const color = label => colors[label] || "#888";
+const textColor = label => textColors[label] || "#888";
+const name = label => NAMES[label] || label;
+if (window.matchMedia) {
+  const scheme = window.matchMedia("(prefers-color-scheme: dark)");
+  const onSchemeChange = () => {
+    buildProbs(); renderStatus(); renderState(history.length ? history[history.length - 1] : null); renderHistory();
+  };
+  if (scheme.addEventListener) scheme.addEventListener("change", onSchemeChange);
+  else if (scheme.addListener) scheme.addListener(onSchemeChange);  // Safari < 14
+}
+
+function fmtDuration(seconds) {
+  const s = Math.round(seconds);
+  return s >= 60 ? Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0") : s + " s";
+}
+
+function buildProbs() {
+  cacheColors();
+  $("probs").innerHTML = labels.map(l =>
+    `<div class="prob"><span>${name(l)}</span><div class="bar"><div id="bar-${l}" style="background:${color(l)}"></div></div><span id="pct-${l}">–</span></div>`).join("");
+}
+
+function renderState(p) {
+  if (!p || status.collecting) {
+    $("state-icon").textContent = "…";
+    $("state-name").textContent = "Đang thu tín hiệu…";
+    $("state-name").style.color = "";
+    $("state-conf").textContent = "";
+    $("state-uncertain").style.display = "none";
+    labels.forEach(l => { $("bar-" + l).style.width = "0"; $("pct-" + l).textContent = "–"; });
+    return;
+  }
+  const conf = p.probabilities[labels.indexOf(p.label)];
+  $("state-icon").textContent = ICONS[p.label] || "?";
+  $("state-name").textContent = name(p.label);
+  $("state-name").style.color = p.uncertain ? "var(--muted)" : textColor(p.label);
+  $("state-conf").textContent = "độ tin cậy " + Math.round(conf * 100) + "%";
+  $("state-uncertain").style.display = p.uncertain ? "inline-block" : "none";
+  labels.forEach((l, i) => {
+    $("bar-" + l).style.width = (p.probabilities[i] * 100).toFixed(1) + "%";
+    $("pct-" + l).textContent = Math.round(p.probabilities[i] * 100) + "%";
+  });
+}
+
+function segments(key) {
+  const out = [];
+  for (const p of history) {
+    const label = p[key];
+    if (label == null) continue;
+    const last = out[out.length - 1];
+    if (last && last.label === label) last.n += 1; else out.push({label, n: 1});
+  }
+  return out;
+}
+
+function renderStrip(id, key) {
+  $(id).innerHTML = segments(key).map(s => {
+    const text = `${name(s.label)} ${fmtDuration(s.n * STEP_S)}`;
+    return `<div style="flex:${s.n};background:${color(s.label)}" title="${text}">${text}</div>`;
+  }).join("");
+}
+
+function renderHistory() {
+  renderStrip("history-pred", "label");
+  const replay = status.mode === "replay";
+  $("true-block").style.display = replay ? "block" : "none";
+  if (replay) renderStrip("history-true", "true_label");
+}
+
+function renderChart() {
+  if (!samples.length) { $("chart").innerHTML = ""; return; }
+  const end = samples[samples.length - 1][0];
+  const start = end - CHART_S;
+  const y = v => (100 - Math.max(-2, Math.min(2, v)) * 50).toFixed(1);
+  const x = t => ((t - start) / CHART_S * 1000).toFixed(1);
+  const grid = [-1, 0, 1].map(g =>
+    `<line x1="0" x2="1000" y1="${y(g)}" y2="${y(g)}" stroke="currentColor" stroke-opacity="0.15"/>`).join("");
+  const lines = [["#d64545", 1], ["#2f9e6b", 2], ["#3b7dd8", 3]].map(([c, k]) =>
+    `<polyline fill="none" stroke="${c}" stroke-width="2" vector-effect="non-scaling-stroke" points="${
+      samples.map(s => x(s[0]) + "," + y(s[k])).join(" ")}"/>`).join("");
+  $("chart").innerHTML = grid + lines;
+}
+
+function notice(text) {
+  $("notice").textContent = text || "";
+  $("notice").style.display = text ? "block" : "none";
+}
+
+let lostShown = false;
+function stateText(s) {
+  if (lostShown && s.state === "connecting") return `Mất kết nối — đang thử lại (lần thử ${s.attempt})`;
+  return (STATE_TEXT[s.state] || (() => s.state || ""))(s);
+}
+
+function renderStatus() {
+  const s = status;
+  if (s.state === "lost") lostShown = true;
+  else if (["starting", "calibrating", "streaming", "replaying", "finished", "error"].includes(s.state)) lostShown = false;
+  $("btn-live").classList.toggle("active", s.mode === "live");
+  $("btn-replay").classList.toggle("active", s.mode === "replay");
+  $("btn-live").setAttribute("aria-pressed", String(s.mode === "live"));
+  $("btn-replay").setAttribute("aria-pressed", String(s.mode === "replay"));
+  const panelVisible = s.mode === "replay" || replayOpen;
+  $("replay-panel").style.display = panelVisible ? "flex" : "none";
+  if (s.mode === "replay" && s.speed != null) {
+    if (speedApplied !== s.speed) { $("replay-speed").value = String(s.speed); speedApplied = s.speed; }
+  } else speedApplied = null;
+  if (panelVisible && !$("replay-session").options.length) loadSessions();
+  const parts = [stateText(s)];
+  if (s.rate_hz) parts.push(s.rate_hz.toFixed(1) + " Hz");
+  parts.push("mất " + (s.missing || 0) + " mẫu");
+  if (s.parse_errors) parts.push("lỗi dòng " + s.parse_errors);
+  if (s.predict_p95_ms != null) parts.push("p95 " + s.predict_p95_ms.toFixed(0) + " ms");
+  $("status-line").textContent = parts.join(" · ");
+  if (restartsSeen !== null && s.restarts > restartsSeen) restartNoticeUntil = Date.now() + 5000;
+  restartsSeen = s.restarts;
+  let text = "";
+  if (["connecting", "calibrating", "lost", "busy", "error"].includes(s.state)) text = stateText(s);
+  else if (s.state === "streaming" && s.stale) text = "Mất tín hiệu";
+  else if (Date.now() < restartNoticeUntil) text = "ESP32 vừa khởi động lại";
+  notice(text);
+  $("accuracy").textContent = s.replay_accuracy == null ? "–" : (s.replay_accuracy * 100).toFixed(1) + "%";
+}
+
+const events = new EventSource("/events");
+events.addEventListener("snapshot", e => {
+  const d = JSON.parse(e.data);
+  labels = d.labels;
+  buildProbs();
+  history = d.history;
+  lastIndex = history.length ? history[history.length - 1].index : -1;
+  samples = [];
+  status = d.status;
+  restartsSeen = status.restarts;
+  renderStatus(); renderState(d.latest); renderHistory(); renderChart();
+});
+events.addEventListener("status", e => {
+  const s = JSON.parse(e.data);
+  const modeChanged = s.mode !== status.mode;
+  if (s.state === "starting") {
+    history = []; lastIndex = -1; samples = []; restartsSeen = s.restarts; renderChart();
+  }
+  status = s;
+  renderStatus();
+  if (modeChanged || s.state === "starting") renderHistory();
+  if (status.collecting) renderState(null);
+});
+events.addEventListener("prediction", e => {
+  const p = JSON.parse(e.data);
+  if (p.index <= lastIndex) return;
+  lastIndex = p.index;
+  history.push(p);
+  if (history.length > 2000) history.shift();
+  status.collecting = false;
+  renderState(p); renderHistory();
+});
+events.addEventListener("samples", e => {
+  const d = JSON.parse(e.data);
+  samples.push(...d.samples);
+  const end = samples[samples.length - 1][0];
+  while (samples.length && samples[0][0] < end - CHART_S) samples.shift();
+  renderChart();
+});
+events.onerror = () => notice(events.readyState === EventSource.CLOSED
+  ? "Mất kết nối tới Pi4 — tải lại trang" : "Mất kết nối tới Pi4 — trình duyệt đang thử lại…");
+
+function showReplayError(err) {
+  $("replay-error").textContent = "Lỗi: " + (err && err.message ? err.message : err);
+}
+
+async function postMode(body) {
+  $("replay-error").textContent = "";
+  try {
+    const r = await fetch("/api/mode", {method: "POST", headers: {"Content-Type": "application/json"},
+                                        body: JSON.stringify(body)});
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      showReplayError(d.error || r.status);
+    }
+  } catch (err) {
+    showReplayError(err);
+  }
+}
+
+function updateStartEnabled() {
+  $("replay-start").disabled = startBusy || !$("replay-session").options.length;
+}
+
+async function loadSessions() {
+  if (loadingSessions || Date.now() < sessionsRetryAt) return;
+  loadingSessions = true;
+  try {
+    const r = await fetch("/api/sessions");
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      throw new Error(d.error || r.status);
+    }
+    const d = await r.json();
+    const select = $("replay-session");
+    const previous = select.value;
+    select.innerHTML = "";
+    const tests = d.sessions.filter(s => s.split === "test").map(s => s.session_id);
+    if (tests.length) {
+      const o = document.createElement("option");
+      o.value = JSON.stringify(tests);
+      o.textContent = `Cả buổi test (${tests.length} phiên)`;
+      select.appendChild(o);
+    }
+    for (const s of d.sessions) {
+      const o = document.createElement("option");
+      o.value = JSON.stringify([s.session_id]);
+      o.textContent = `${s.split} · ${s.label == null ? "?" : name(s.label)} · ${s.started_utc}`;
+      select.appendChild(o);
+    }
+    if (previous && [...select.options].some(o => o.value === previous)) select.value = previous;
+    if (!select.options.length) { sessionsRetryAt = Date.now() + 5000; showReplayError("không có phiên nào"); }
+    else $("replay-error").textContent = "";
+  } catch (err) {
+    sessionsRetryAt = Date.now() + 5000;
+    showReplayError(err);
+  } finally {
+    loadingSessions = false;
+    updateStartEnabled();
+  }
+}
+
+$("btn-live").onclick = () => {
+  replayOpen = false;
+  if (status.mode === "live" && status.state !== "error") { renderStatus(); return; }
+  postMode({mode: "live"});
+};
+$("btn-replay").onclick = () => {
+  replayOpen = true;
+  renderStatus();
+  sessionsRetryAt = 0;
+  loadSessions();
+};
+$("replay-start").onclick = () => {
+  if (startBusy) return;
+  startBusy = true;
+  updateStartEnabled();
+  setTimeout(() => { startBusy = false; updateStartEnabled(); }, 1000);
+  postMode({mode: "replay",
+    sessions: JSON.parse($("replay-session").value || "[]"), speed: Number($("replay-speed").value)});
+};
+buildProbs();
+</script>
+</body>
+</html>

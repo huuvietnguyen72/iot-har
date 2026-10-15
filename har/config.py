@@ -1,0 +1,11 @@
+LABELS = ("walk", "sit", "stand", "lie")
+LABEL_MAP = {1: "walk", 4: "sit", 5: "stand", 6: "lie"}
+WINDOW_SIZE = 128
+STRIDE = 64
+SAMPLE_RATE_HZ = 50
+SEED = 42
+SCHEMA_VERSION = 1
+CHANNELS = ("ax", "ay", "az", "gx", "gy", "gz", "acc_mag", "gyro_mag")
+STATISTICS = ("mean", "std", "min", "max", "median", "rms", "mean_abs", "iqr")
+CORRELATIONS = ((0, 1), (0, 2), (1, 2), (3, 4), (3, 5), (4, 5))
+UCI_URL = "https://archive.ics.uci.edu/static/public/240/human+activity+recognition+using+smartphones.zip"
