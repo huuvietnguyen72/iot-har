@@ -43,6 +43,99 @@ py -3.13 -m venv .venv-har
 & ".\.venv-har\Scripts\python.exe" -m har demo --run-dir har_runs/own_rf_01 --esp 127.0.0.1:8765 --data-dir data/har_own --host 127.0.0.1
 ```
 
+## Khởi động với ESP32 thật
+
+Cần: ESP32 + MPU6050 đã nối dây (VCC=3V3, GND=GND, SDA=GPIO21, SCL=GPIO22, AD0=GND),
+Raspberry Pi 4 và ESP32 **cùng một mạng Wi-Fi 2.4 GHz**, điện thoại/laptop cùng mạng để xem web.
+
+### 1. Nạp firmware Wi-Fi (một lần, trên laptop)
+
+1. Chép `src/wifi_secrets.example.h` thành `src/wifi_secrets.h`, điền tên và mật khẩu Wi-Fi.
+2. Cắm ESP32 vào laptop, nạp bản Wi-Fi và mở Serial (thay `COM6` bằng cổng thực tế; nếu lệnh
+   `pio` đã có trong PATH thì gõ `pio` thay cho đường dẫn đầy đủ):
+
+   ```powershell
+   $pio = "$env:USERPROFILE\.platformio\penv\Scripts\platformio.exe"
+   & $pio run -e esp32dev_wifi -t upload --upload-port COM6
+   & $pio device monitor -b 115200 --port COM6
+   ```
+
+3. Để cảm biến **nằm yên trên bàn**. Log đúng sẽ có lần lượt:
+
+   ```text
+   [READY] MPU6050 at 0x68; configuration verified.
+   [CAL] DONE bias=(...) dps
+   [WIFI] connected ssid=<tên mạng> ip=192.168.1.2      ← IP của ESP32, ghi lại
+   ```
+
+   IP do router cấp nên có thể đổi; khi cần, xem lại log này hoặc danh sách thiết bị trên router
+   (ESP32 có tên mạng `mpu6050-esp32`).
+
+### 2. Cài đặt trên Pi4 (một lần)
+
+```bash
+sudo apt update
+sudo apt install git python3-venv
+git clone https://github.com/huuvietnguyen72/iot-har ~/har-baseline
+cd ~/har-baseline
+python3 -m venv .venv-har
+.venv-har/bin/pip install -r requirements-har.txt
+```
+
+Repo đã kèm mô hình `har_runs/own_rf_01` và dữ liệu `data/har_own` nên không cần huấn luyện lại.
+
+### 3. Mỗi lần sử dụng
+
+1. **Hiệu chỉnh:** đặt cảm biến nằm yên trên bàn, cấp nguồn ESP32 (USB hoặc pin dự phòng 5 V)
+   hoặc bấm nút EN. Giữ yên khoảng 7 giây. Nếu cảm biến bị cầm/đeo lúc này, hiệu chỉnh sẽ bị từ chối
+   và tự thử lại sau 3 giây.
+2. **Đeo cảm biến** đúng như lúc thu dữ liệu huấn luyện: hông phải ở thắt lưng, mặt chip MPU6050
+   hướng ra ngoài, cổng USB của ESP32 chúc xuống. Đeo khác hướng thì mô hình dễ nhận sai.
+3. Trên Pi4 (qua SSH), chọn **một** trong hai cách xem kết quả dưới đây, thay `192.168.1.2` bằng IP ESP32.
+
+**Cách A — xem trên trang web**
+
+```bash
+cd ~/har-baseline
+.venv-har/bin/python -m har demo --run-dir har_runs/own_rf_01 --esp 192.168.1.2:8765 --data-dir data/har_own
+```
+
+Mở `http://<IP-Pi4>:8080` trên điện thoại hoặc laptop. Trang mở sẵn chế độ **Trực tiếp**, hiển thị
+hoạt động hiện tại (đi bộ/ngồi/đứng/nằm), độ tin cậy và tốc độ nhận mẫu; kết quả mới khoảng mỗi
+1,28 giây. Nút **Phát lại** chạy lại các phiên đã thu trong `data/har_own` (ngắt kết nối ESP32);
+bấm **Trực tiếp** để quay lại. Dừng bằng Ctrl+C trong SSH.
+
+**Cách B — xem trên terminal**
+
+```bash
+cd ~/har-baseline
+.venv-har/bin/python -m har live --run-dir har_runs/own_rf_01 --esp 192.168.1.2:8765
+```
+
+Mỗi kết luận in một dòng, ví dụ:
+
+```text
+Đã nhận dữ liệu từ ESP32
+14:05:12  ĐI BỘ   93%   (thô: walk 0.95)   50.0 Hz  mất 0 mẫu
+14:05:13  ĐI BỘ   95%   (thô: walk 0.97)   50.0 Hz  mất 0 mẫu
+```
+
+Cột phần trăm là xác suất trung bình 3 cửa sổ gần nhất; dưới 60% sẽ có thêm `(không chắc)`.
+Dừng bằng Ctrl+C.
+
+Cả hai lệnh cũng chạy được trên laptop (Windows: thay `.venv-har/bin/python` bằng
+`.\.venv-har\Scripts\python.exe`) nếu laptop cùng mạng với ESP32.
+
+### Xử lý sự cố
+
+| Thông báo | Nguyên nhân và cách xử lý |
+| --- | --- |
+| `Đang tìm ESP32 (…)… lần thử N` | Sai IP, ESP32 chưa vào mạng hoặc khác mạng với Pi4. Xem lại IP trong log Serial. |
+| `ESP32 đang hiệu chỉnh — để yên trên bàn` | ESP32 vừa bật/reset. Tháo ra đặt yên trên bàn đến khi hết thông báo rồi đeo lại. |
+| `ESP32 đang bận …` | ESP32 chỉ nhận một kết nối. Tắt `collector`, `demo` hoặc `live` khác đang chạy; ngay sau khi rớt Wi-Fi có thể phải chờ vài giây. |
+| `Mất kết nối — đang thử lại` | 5 giây không nhận dữ liệu (mất Wi-Fi, hết pin). Chương trình tự kết nối lại. |
+| `ESP32 vừa khởi động lại` | ESP32 reset và đã hiệu chỉnh lại; nếu nó reset khi đang đeo, xem dòng hiệu chỉnh ở trên. |
+
 Các phần dưới đây mô tả từng bước của dự án theo thứ tự thực hiện.
 
 ## Bước 1 — thu dữ liệu USB 50 Hz và hiệu chỉnh gyro
