@@ -147,9 +147,14 @@ Gói Python `collector` (chạy trên Raspberry Pi 4, Debian 12, Python 3.11) l�
 ### Phần cứng và nạp firmware
 
 - MPU6050: VCC=3V3, GND=GND, SDA=GPIO21, SCL=GPIO22, AD0=GND (địa chỉ 0x68).
-- Build/Upload bằng PlatformIO. Trên Windows, `platformio.ini` đã đặt `build_dir` vào
-  đường dẫn không dấu trong `%TEMP%` (toolchain ESP32 lỗi khi tạo file tạm trong đường
-  dẫn có dấu tiếng Việt); build trực tiếp tại thư mục project, không cần sao chép.
+- Build/Upload bằng PlatformIO. Đặt thư mục dự án ở **đường dẫn không dấu**: toolchain ESP32
+  lỗi khi tạo file tạm trong đường dẫn có dấu tiếng Việt. Nếu không đổi được chỗ, thêm vào
+  đầu `platformio.ini` một thư mục build không dấu, ví dụ:
+
+  ```ini
+  [platformio]
+  build_dir = C:/pio-build/iot-har
+  ```
 - Giữ cảm biến cố định khi khởi động: hiệu chỉnh cần 2 giây ổn định + 500 mẫu (~5 giây).
   Nếu bị từ chối, chương trình tự thử lại sau 3 giây.
 
@@ -169,21 +174,19 @@ DATA,1,7a31b25c809fd416,12,8340000,-0.921,0.051,0.132,0.120,-0.080,0.050,29.40
 
 ### Cài đặt bộ thu trên Pi4
 
+`collector` chỉ cần thư viện chuẩn Python và pyserial. Nếu chưa clone repo vào
+`~/har-baseline` (mục "Khởi động với ESP32 thật" → bước 2), làm như sau:
+
 ```bash
 sudo apt update
-sudo apt install python3-serial
-```
-
-Chép gói `collector` sang Pi4 (chạy trên laptop, PowerShell; thay `<IP>`):
-
-```powershell
-scp -r .\collector pi@<IP>:~/collector
+sudo apt install git python3-serial
+git clone https://github.com/huuvietnguyen72/iot-har ~/har-baseline
 ```
 
 ### Chạy một phiên thu (trên Pi4 qua SSH)
 
 ```bash
-cd ~
+cd ~/har-baseline
 python3 -m collector --port /dev/ttyUSB0 --duration 60 --label test
 ```
 
@@ -241,11 +244,12 @@ Không đưa mật khẩu vào source/log. ESP32 thử mạng nhà trước, r�
 & "$env:USERPROFILE\.platformio\penv\Scripts\platformio.exe" run -e esp32dev_wifi -t upload --upload-port COM6
 ```
 
-Trên Pi4 (cùng mạng với ESP32), từ thư mục chứa package `collector`:
+Trên Pi4 (cùng mạng với ESP32):
 
 ```bash
+cd ~/har-baseline
 python3 -m collector --tcp ESP_IP:8765 --duration 60 --label test --output data
-python3 -m collector --discover --duration 60 --label test --output data   # cần: pip install zeroconf
+python3 -m collector --discover --duration 60 --label test --output data   # cần: sudo apt install python3-zeroconf
 ```
 
 - ESP32 vẫn giữ nhịp lấy mẫu 50 Hz khi mạng chậm; mẫu bị bỏ được báo qua NET.
@@ -277,11 +281,13 @@ có chế độ phát lại CSV đã ghi khi không có cảm biến. Lệnh và
 
 Chạy từ thư mục gốc của repo.
 
-Build firmware (PlatformIO; đường dẫn build đã đặt trong `platformio.ini`):
+Build firmware bằng PlatformIO (Windows; nếu `pio` đã có trong PATH thì gõ `pio` thay cho
+đường dẫn đầy đủ). Bản Wi-Fi vẫn build được khi chưa có `src/wifi_secrets.h`, nhưng sẽ không vào được mạng:
 
-```text
-pio run -e esp32dev
-pio run -e esp32dev_wifi
+```powershell
+$pio = "$env:USERPROFILE\.platformio\penv\Scripts\platformio.exe"
+& $pio run -e esp32dev
+& $pio run -e esp32dev_wifi
 ```
 
 Test C++ chạy trên máy tính (cần `g++`):

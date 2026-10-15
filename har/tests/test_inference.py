@@ -55,7 +55,7 @@ class InferenceTests(unittest.TestCase):
             write_csv(csv_path)
             output = tmp / "replay.json"
             result = predict_csv(run, csv_path, output)
-            self.assertEqual(result["scope"], "public_dataset_model_replay_not_activity_validation")
+            self.assertEqual(result["scope"], "model_replay_not_activity_validation")
             self.assertEqual(len(result["windows"]), 2)
             self.assertIn("prediction", result["windows"][0])
             self.assertTrue(output.exists())

@@ -10,7 +10,7 @@ from .collector_csv import load_collector_windows
 from .config import LABELS, WINDOW_SIZE
 from .features import extract_features
 
-SCOPE = "public_dataset_model_replay_not_activity_validation"
+SCOPE = "model_replay_not_activity_validation"
 
 
 def _validate_windows(windows):

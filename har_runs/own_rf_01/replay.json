@@ -1,5 +1,5 @@
 {
-  "scope": "public_dataset_model_replay_not_activity_validation",
+  "scope": "model_replay_not_activity_validation",
   "source_csv": "data\\har_own\\test\\20261014T042223Z-e1354d0d.csv",
   "quality": {
     "rows": 6002,

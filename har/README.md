@@ -1,7 +1,12 @@
-# har — Baseline HAR bốn hoạt động (bước 3A)
+# har — nhận diện bốn hoạt động walk/sit/stand/lie
 
-Package này dựng pipeline nhận diện bốn hoạt động `walk`, `sit`, `stand`, `lie`
-bằng dữ liệu công khai **UCI HAR**, huấn luyện trên laptop và thử suy luận trên Pi4.
+Package này dựng pipeline nhận diện bốn hoạt động `walk`, `sit`, `stand`, `lie`:
+
+- **Bước 3A:** baseline trên dữ liệu công khai **UCI HAR** (`prepare`, `train`).
+- **Bước 3B:** huấn luyện lại trên dữ liệu MPU6050 tự thu (`train-own`) — mô hình dùng cho demo.
+- **Demo:** suy luận trực tiếp từ ESP32 hoặc phát lại phiên đã thu (`demo`, `live`, `fake-esp32`).
+
+Huấn luyện trên laptop, suy luận trên Pi4 hoặc laptop.
 
 ## Dữ liệu và ghi công
 
@@ -109,10 +114,11 @@ python -m har demo --run-dir har_runs/own_rf_01 --esp 127.0.0.1:8765 --data-dir 
 
 ## Giới hạn
 
-- Đây là baseline trên **dữ liệu smartphone công khai**, chưa phải độ chính xác trên
-  MPU6050 đeo ở eo. Không lấy điểm UCI để suy ra điểm phần cứng.
-- `predict-csv` chỉ replay đường suy luận và **không** xác nhận hoạt động người:
-  dữ liệu `test` trên bàn không có nhãn hoạt động.
-- Khi có nguồn di động (AC-04/05), thu `walk/sit/stand/lie` với nhãn và subject/session
-  rõ ràng rồi huấn luyện/kiểm định lại bằng pipeline này; kiểm tra clipping từng trục,
-  hướng gắn, bias gia tốc và bộ lọc chống aliasing trước khi kết luận.
+- Mô hình UCI (bước 3A) không dùng được trực tiếp cho MPU6050: chấm trên dữ liệu tự thu chỉ
+  đạt macro-F1 0.106, gần bằng Dummy, do khác hệ trục và cách gắn giữa smartphone và MPU6050.
+- Mô hình `own_rf_01` (bước 3B, macro-F1 0.975 trên buổi test) học từ dữ liệu của **một người**
+  với **một cách đeo**; chưa kiểm chứng trên người khác hoặc hướng đeo khác. Buổi test chỉ có
+  2 phiên mỗi hoạt động nên khoảng tin cậy còn rộng.
+- `predict-csv` chỉ chạy lại đường suy luận trên một CSV, **không** chấm độ chính xác
+  (kết quả có `scope = model_replay_not_activity_validation`); điểm chính thức nằm trong `report.md`.
+- Chưa có lớp lên/xuống cầu thang.
