@@ -3,7 +3,7 @@
 #            python -m har live --config har_demo.toml
 # Tham số trên dòng lệnh luôn ghi đè giá trị trong file.
 
-esp = "172.20.10.2:8765"            # IP và cổng ESP32 (nên dùng IP, không dùng tên máy)
+esp = "192.168.1.50:8765"           # IP và cổng ESP32 (nên dùng IP, không dùng tên máy)
 run_dir = "har_runs/own_rf_01"      # thư mục mô hình
 data_dir = "data/har_own"           # thư mục chứa train/ và test/ để phát lại
 host = "0.0.0.0"                    # địa chỉ trang web lắng nghe (mặc định 0.0.0.0)
