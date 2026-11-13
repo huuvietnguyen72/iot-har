@@ -278,7 +278,8 @@ class EspSourceFeedbackTests(unittest.TestCase):
         with TemporaryDirectory() as tmp:
             csv = write_own_session(Path(tmp), "s1", "walk", "2026-10-14T08:00:00Z",
                                     seconds=3).with_suffix(".csv")
-            with FakeEsp32(csv, speed=20, loop=False) as fake:
+            # loop=True: the fake keeps the connection open, as the real ESP32 does.
+            with FakeEsp32(csv, speed=20, loop=True) as fake:
                 source = EspSource(fake.host, fake.port, retry_s=0.05,
                                    feedback=lambda: "stand", feedback_every_s=0.0)
                 sink, finished = run_source(source, lambda s: len(s.samples) >= 150)
