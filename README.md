@@ -296,6 +296,25 @@ Tùy chọn khi build, thêm vào `build_flags` trong `platformio.ini`:
   sang một bên hoặc có sọc nhiễu ở mép, hãy thử cờ này.
 - `-D BUZZER_PASSIVE=1`: còi thụ động, cần xung 2,7 kHz. Dùng khi trong `hw_test` chỉ phím `t`
   làm còi kêu.
+- `-D FALL_DETECT=0`: tắt phát hiện nghi té trên thiết bị (xem mục dưới). Nên tắt khi thu dữ
+  liệu té có dàn dựng, để còi không kêu giữa phiên thu.
+
+### Phát hiện nghi té trên thiết bị
+
+ESP32 tự bật cảnh báo, không cần Pi4, khi thấy đủ ba điều theo thứ tự (`src/fall_detector.h`):
+
+1. Va đập: độ lớn gia tốc đạt 2,5 g trở lên.
+2. Chờ 1 giây cho hết nảy, lăn.
+3. Trong 2 giây tiếp theo, mọi mẫu đều gần 1 g (nằm yên) và trục Y lệch khỏi phương thẳng đứng
+   hơn khoảng 60° (|ay| ≤ 0,5 g, tức là không còn đứng hay ngồi thẳng).
+
+Khi đó thiết bị gửi `EVT,1,...,fall_suspect,<seq>` rồi bật còi và đèn đỏ. Người đeo nhấn nút để
+hủy. Ngồi phịch xuống hay nhảy thì có va đập nhưng sau đó vẫn thẳng người nên bị bỏ qua; nằm
+xuống nhẹ thì không có va đập. Thả người xuống giường vẫn có thể báo nhầm.
+
+Các ngưỡng trên là giá trị khởi đầu theo thông lệ, **chưa được chỉnh trên dữ liệu té thật** và
+chưa đo tỉ lệ báo nhầm, bỏ sót. Quy tắc dựa trên hướng đeo của dự án (trục Y chỉ xuống khi đứng).
+Hãy coi mỗi lần báo là "nghi té" cho đến khi có dữ liệu kiểm chứng.
 
 ### Dòng mới trong giao thức
 
@@ -312,7 +331,8 @@ STAT,1,<stream_id>,<device_time_us>,<vbat_mv>,<percent>,<rssi_dbm>,<flags>
 
 - `BARO`: `seq` là số thứ tự của mẫu `DATA` vừa đọc trước đó.
 - `EVT`: `name` là `button` (nhấn nút, `value` là số lần), `sos` (giữ nút 2 giây),
-  `alert_on` (đã bật cảnh báo), `alert_cancel` (người đeo nhấn nút hủy).
+  `fall_suspect` (thiết bị nghi té, `value` là `seq` của mẫu lúc đó), `alert_on` (đã bật cảnh
+  báo), `alert_cancel` (người đeo nhấn nút hủy).
 - `STAT`: mỗi 10 giây. `vbat_mv = 0` và `percent = -1` nghĩa là không đo được pin.
   `flags` là tổng của: 1 = BMP280 hoạt động, 2 = có OLED, 4 = đang cảnh báo, 8 = pin yếu.
 - `stream_id` để trống cho đến khi hiệu chỉnh gyro xong.
@@ -326,8 +346,12 @@ CMD,1,ALERT,<0|1>     bật / tắt cảnh báo té
 
 Nhãn hoạt động chỉ gồm chữ thường, số và dấu gạch dưới, tối đa 15 ký tự. Nếu quá 5 giây không
 có lệnh `ACT` mới, màn hình hiện `--`. `har live` và `har demo` (chế độ trực tiếp) gửi lệnh
-`ACT` mỗi giây khi đang có kết quả nhận diện. Lệnh `ALERT` chưa có nơi gửi vì chưa có mô hình
-phát hiện té; có thể gõ tay vào Serial Monitor để thử còi và đèn.
+`ACT` mỗi giây khi đang có kết quả nhận diện. Pi4 chưa gửi `ALERT` vì chưa có mô hình phát
+hiện té; hiện cảnh báo do chính ESP32 bật (mục trên). Có thể gõ lệnh vào Serial Monitor để thử
+còi và đèn.
+
+Áp suất đi bằng dòng `BARO` riêng thay cho dòng `DATA2` từng dự tính: dòng `DATA,1` giữ nguyên
+12 trường nên dữ liệu và mô hình cũ dùng tiếp được, và bộ thu cũ không báo lỗi định dạng.
 
 ## Bước 3A — Baseline nhận diện hoạt động (dữ liệu công khai)
 
@@ -376,7 +400,7 @@ Test C++ chạy trên máy tính (cần `g++`):
 
 ```bash
 for t in calibration data_stream net_protocol bmp280 button battery indicator \
-         wearable_protocol display_view; do
+         wearable_protocol display_view fall_detector; do
   g++ -std=c++11 -Wall -Wextra -Werror test/${t}_test.cpp -o ${t}_test && ./${t}_test
 done
 ```

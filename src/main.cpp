@@ -6,11 +6,16 @@
 #include <string.h>
 #include "bmp280.h"
 #include "data_stream.h"
+#include "fall_detector.h"
 #include "gyro_calibration.h"
 #include "net_protocol.h"
 #include "pins.h"
 #include "ui.h"
 #include "wearable_protocol.h"
+
+#ifndef FALL_DETECT
+#define FALL_DETECT 1  // 0 = no on-device fall suspicion; the Pi can still send CMD,1,ALERT
+#endif
 
 #if WIFI_STREAMING
 #include <WiFi.h>
@@ -70,6 +75,7 @@ Bmp280Calibration baroCalibration;
 // Guards streamIdHex, the Wi-Fi queue and whole-line writes to Serial.
 SemaphoreHandle_t recordMutex = nullptr;
 LineBuffer serialCommands;
+FallDetector fallDetector;
 
 #if WIFI_STREAMING
 constexpr uint16_t kTcpPort = 8765;
@@ -333,6 +339,7 @@ CalibrationResult calibrateGyro() {
   xSemaphoreTake(recordMutex, portMAX_DELAY);
   formatStreamId(streamIdHex, sizeof(streamIdHex), streamIdValue);
   sampleSeq = 0;
+  fallDetector.reset();
 #if WIFI_STREAMING
   wifiQueue.clear();
   wifiQueue.resetCounters();
@@ -442,6 +449,13 @@ bool emitSample() {
   formatDataRecord(line, sizeof(line), streamIdHex, sample);
   publishRecord(line);
   if (baroReady && sampleSeq % kBaroEverySamples == 0) emitBaro(sampleSeq);
+#if FALL_DETECT
+  if (fallDetector.update(sample.ax, sample.ay, sample.az, millis())) {
+    Serial.println("[FALL] impact followed by lying still: alert started.");
+    publishEvent("fall_suspect", static_cast<long>(sampleSeq));
+    uiSetAlert(true);
+  }
+#endif
   ++sampleSeq;
   ++goodReads;
   return true;
