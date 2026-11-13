@@ -16,6 +16,7 @@ struct DisplayInput {
   SensorState sensor = SensorState::Starting;
   LinkState link = LinkState::UsbOnly;
   const char *activity = "";    // label from the Pi; "" when none or stale
+  int stairs = 0;               // on-device stairs hint: 1 up, -1 down, 0 none
   bool alert_active = false;
   bool sos_notice = false;      // just sent an SOS event
   bool battery_valid = false;
@@ -77,6 +78,10 @@ inline void buildDisplayView(const DisplayInput &in, DisplayView *view) {
     snprintf(view->title, sizeof(view->title), "HIEU CHINH");
   } else if (in.sensor == SensorState::Starting) {
     snprintf(view->title, sizeof(view->title), "KHOI DONG");
+  } else if (in.stairs != 0) {
+    // The on-device hint wins over the Pi's label: the Pi model may not know stairs.
+    activityDisplayName(in.stairs > 0 ? "stairs_up" : "stairs_down", view->title,
+                        sizeof(view->title));
   } else if (in.activity[0] != '\0') {
     activityDisplayName(in.activity, view->title, sizeof(view->title));
   } else {

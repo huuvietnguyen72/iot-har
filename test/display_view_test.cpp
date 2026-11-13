@@ -65,6 +65,20 @@ int main() {
   check(eq(view.title, "--"), "no activity yet: placeholder title");
 
   in = streaming();
+  in.stairs = 1;
+  buildDisplayView(in, &view);
+  check(eq(view.title, "LEN THANG"), "on-device stairs up replaces the Pi's walk label");
+  in.stairs = -1;
+  buildDisplayView(in, &view);
+  check(eq(view.title, "XUONG THANG"), "on-device stairs down");
+  in.activity = "";
+  buildDisplayView(in, &view);
+  check(eq(view.title, "XUONG THANG"), "stairs is shown even without a label from the Pi");
+  in.alert_active = true;
+  buildDisplayView(in, &view);
+  check(eq(view.title, "CANH BAO TE"), "an alert still wins over stairs");
+
+  in = streaming();
   in.battery_valid = false;
   buildDisplayView(in, &view);
   check(eq(view.lines[0], "Pin --") && view.battery_level == -1, "no battery reading");

@@ -7,6 +7,7 @@
 #include "bmp280.h"
 #include "data_stream.h"
 #include "fall_detector.h"
+#include "stairs_detector.h"
 #include "gyro_calibration.h"
 #include "net_protocol.h"
 #include "pins.h"
@@ -15,6 +16,10 @@
 
 #ifndef FALL_DETECT
 #define FALL_DETECT 1  // 0 = no on-device fall suspicion; the Pi can still send CMD,1,ALERT
+#endif
+
+#ifndef STAIRS_DETECT
+#define STAIRS_DETECT 1  // 0 = no on-device stairs hint (needs a BMP280 either way)
 #endif
 
 #if WIFI_STREAMING
@@ -76,6 +81,8 @@ Bmp280Calibration baroCalibration;
 SemaphoreHandle_t recordMutex = nullptr;
 LineBuffer serialCommands;
 FallDetector fallDetector;
+StairsDetector stairsDetector;
+StairsState reportedStairs = StairsState::None;
 
 #if WIFI_STREAMING
 constexpr uint16_t kTcpPort = 8765;
@@ -340,6 +347,7 @@ CalibrationResult calibrateGyro() {
   formatStreamId(streamIdHex, sizeof(streamIdHex), streamIdValue);
   sampleSeq = 0;
   fallDetector.reset();
+  stairsDetector.reset();
 #if WIFI_STREAMING
   wifiQueue.clear();
   wifiQueue.resetCounters();
@@ -384,6 +392,22 @@ void publishRecord(const char *line) {
   xSemaphoreGive(recordMutex);
 }
 
+int stairsDirection(StairsState state) {
+  return state == StairsState::Up ? 1 : state == StairsState::Down ? -1 : 0;
+}
+
+// Reports changes of the on-device stairs state: EVT,1,...,stairs,<1|-1|0> and the OLED.
+void reportStairs(StairsState state) {
+  if (state == reportedStairs) return;
+  reportedStairs = state;
+  const int direction = stairsDirection(state);
+  Serial.printf("[STAIRS] %s (slope %.2f Pa/s)\n",
+                direction > 0 ? "up" : direction < 0 ? "down" : "ended",
+                static_cast<double>(stairsDetector.slopePaPerS()));
+  publishEvent("stairs", direction);
+  uiSetStairs(direction);
+}
+
 void emitBaro(uint32_t seq) {
   uint8_t data[kBmp280DataBytes];
   bool ok = quietRead(baroAddress, kBaroDataStart, data, sizeof(data));
@@ -400,6 +424,9 @@ void emitBaro(uint32_t seq) {
                        bmp280CentiCelsius(tFine) / 100.0);
       publishRecord(line);
       baroFailures = 0;
+#if STAIRS_DETECT
+      reportStairs(stairsDetector.addPressure(static_cast<float>(pressurePa), millis()));
+#endif
       return;
     }
   }
@@ -408,6 +435,10 @@ void emitBaro(uint32_t seq) {
     baroReady = false;
     lastBaroAttemptMs = millis();
     uiSetBaroOk(false);
+#if STAIRS_DETECT
+    stairsDetector.reset();
+    reportStairs(StairsState::None);
+#endif
     Serial.println("[BARO] too many bad readings; retrying in 10 s.");
   }
 }
@@ -448,6 +479,9 @@ bool emitSample() {
   char line[kNetRecordMax];
   formatDataRecord(line, sizeof(line), streamIdHex, sample);
   publishRecord(line);
+#if STAIRS_DETECT
+  stairsDetector.addAccel(sample.ax, sample.ay, sample.az);
+#endif
   if (baroReady && sampleSeq % kBaroEverySamples == 0) emitBaro(sampleSeq);
 #if FALL_DETECT
   if (fallDetector.update(sample.ax, sample.ay, sample.az, millis())) {

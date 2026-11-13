@@ -50,6 +50,7 @@ bool activitySet = false;
 bool alertOnRequested = false;
 bool alertOffRequested = false;
 bool baroOk = false;
+int stairsDirection = 0;
 
 struct Snapshot {
   SensorState sensor;
@@ -58,6 +59,7 @@ struct Snapshot {
   bool alertOn;
   bool alertOff;
   bool baro;
+  int stairs;
 };
 
 Snapshot takeSnapshot(uint32_t now) {
@@ -76,6 +78,7 @@ Snapshot takeSnapshot(uint32_t now) {
   alertOnRequested = false;
   alertOffRequested = false;
   s.baro = baroOk;
+  s.stairs = stairsDirection;
   portEXIT_CRITICAL(&stateMux);
   return s;
 }
@@ -239,6 +242,7 @@ void uiTask(void *) {
         in.sensor = state.sensor;
         in.link = state.link;
         in.activity = state.activity;
+        in.stairs = state.stairs;
         in.alert_active = alert.active();
         in.sos_notice = before(now, sosNoticeUntil);
         in.battery_valid = battery.valid();
@@ -308,6 +312,12 @@ void uiSetAlert(bool on) {
     alertOffRequested = true;
     alertOnRequested = false;
   }
+  portEXIT_CRITICAL(&stateMux);
+}
+
+void uiSetStairs(int direction) {
+  portENTER_CRITICAL(&stateMux);
+  stairsDirection = direction > 0 ? 1 : direction < 0 ? -1 : 0;
   portEXIT_CRITICAL(&stateMux);
 }
 
