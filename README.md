@@ -2,12 +2,13 @@
 
 Một bộ đeo ở eo gồm ESP32 và cảm biến quán tính MPU6050 lấy mẫu 50 Hz, gửi qua Wi-Fi (hoặc USB)
 tới Raspberry Pi 4. Pi4 chạy mô hình **Random Forest** nhận diện **đi bộ (walk), ngồi (sit), đứng
-(stand), nằm (lie)**, cứ khoảng 1,28 giây ra một kết luận, và hiển thị trên trang web.
+(stand), nằm (lie)**, cứ khoảng 1,28 giây ra một kết luận, và hiển thị trên trang web. Khi gắn thêm
+cảm biến áp suất BMP280, hệ thống nhận ra thêm **lên cầu thang** và **xuống cầu thang**
+([mục 8](#8-nhận-diện-lên--xuống-cầu-thang)).
 
-Bộ đeo có thể gắn thêm nút nhấn, hai LED, còi, mạch đo pin, màn hình OLED và cảm biến áp suất
-BMP280. Pi4 gửi hoạt động vừa nhận diện về để hiện trên màn hình; ESP32 tự bật cảnh báo khi nghi
-té. BMP280 đo thay đổi độ cao, dùng để nhận ra **lên và xuống cầu thang** (mục 8). Các phần thêm
-này là tùy chọn: chỉ có ESP32 + MPU6050 thì hệ thống vẫn chạy.
+Bộ đeo có thể gắn thêm nút nhấn, hai LED, còi, mạch đo pin, màn hình OLED và BMP280. Pi4 gửi hoạt
+động vừa nhận diện về để hiện trên màn hình; ESP32 tự bật cảnh báo khi nghi té. Các phần thêm này
+là tùy chọn: chỉ có ESP32 + MPU6050 thì hệ thống vẫn chạy.
 
 ```text
 MPU6050 ─┐                  Wi-Fi TCP 8765
@@ -48,9 +49,10 @@ của mô hình mẫu nằm ở [`KET_QUA.md`](KET_QUA.md).
 5. [Sử dụng hằng ngày](#5-sử-dụng-hằng-ngày)
 6. [Thu dữ liệu của bạn](#6-thu-dữ-liệu-của-bạn)
 7. [Huấn luyện mô hình của bạn](#7-huấn-luyện-mô-hình-của-bạn)
-8. [Tham khảo: firmware bộ đeo](#8-tham-khảo-firmware-bộ-đeo)
-9. [Tham khảo: giao thức](#9-tham-khảo-giao-thức)
-10. [Kiểm tra phần mềm](#10-kiểm-tra-phần-mềm)
+8. [Nhận diện lên / xuống cầu thang](#8-nhận-diện-lên--xuống-cầu-thang)
+9. [Tham khảo: firmware bộ đeo](#9-tham-khảo-firmware-bộ-đeo)
+10. [Tham khảo: giao thức](#10-tham-khảo-giao-thức)
+11. [Kiểm tra phần mềm](#11-kiểm-tra-phần-mềm)
 
 Ngoài ra: [Xử lý sự cố](#xử-lý-sự-cố).
 
@@ -82,7 +84,7 @@ Mở `http://127.0.0.1:8080`. Trên Linux hay macOS, thay `.\.venv-har\Scripts\p
 | SCL | GPIO22 |
 | AD0 | GND (địa chỉ 0x68) |
 
-**Tùy chọn** (chân nối ở [mục 8](#8-tham-khảo-firmware-bộ-đeo)): BMP280, OLED 0,96", nút nhấn,
+**Tùy chọn** (chân nối ở [mục 9](#9-tham-khảo-firmware-bộ-đeo)): BMP280, OLED 0,96", nút nhấn,
 2 LED, còi, motor rung, mạch đo pin.
 
 **Cách đeo** (giống lúc thu dữ liệu mẫu): hông phải ở thắt lưng, mặt chip MPU6050 hướng ra ngoài,
@@ -234,7 +236,7 @@ Mỗi **phiên** là một lần ghi một hoạt động, cho ra hai file `<ses
 - Trong một buổi, thu xen kẽ walk → sit → stand → lie, không thu một hoạt động nhiều lần liền nhau.
 - Hiệu chỉnh ESP32 trên bàn trước (chờ `[CAL] DONE`) rồi mới đeo. Luôn đeo cùng vị trí và hướng.
 - Nếu firmware có phát hiện nghi té, nên build với `-D FALL_DETECT=0` khi thu dữ liệu để còi không
-  kêu giữa phiên (xem mục 8).
+  kêu giữa phiên (xem mục 9).
 
 **Thu qua Wi-Fi** (ESP32 nạp `esp32dev_wifi`), trên Pi4 hoặc laptop cùng mạng. Vào tư thế rồi chạy:
 
@@ -330,7 +332,74 @@ mô hình mẫu.
 Chi tiết về đặc trưng, cách chia dữ liệu, cách chọn cấu hình và mô hình đối chiếu trên dữ liệu
 công khai UCI HAR: [`har/README.md`](har/README.md).
 
-## 8. Tham khảo: firmware bộ đeo
+## 8. Nhận diện lên / xuống cầu thang
+
+Ngoài đi bộ, ngồi, đứng, nằm, hệ thống nhận ra được **lên cầu thang** (`stairs_up`) và **xuống
+cầu thang** (`stairs_down`) khi bộ đeo có cảm biến áp suất **BMP280**.
+
+### Vì sao cần BMP280
+
+MPU6050 không đo được độ cao, nên đi trên mặt phẳng và đi cầu thang cho tín hiệu chuyển động gần
+giống nhau. Áp suất không khí giảm khoảng **12 Pa cho mỗi mét lên cao** (một tầng nhà khoảng 3 m,
+tức chừng 36 Pa), còn nhiễu của BMP280 với bộ lọc đang dùng chỉ cỡ 1–2 Pa:
+
+| Tình huống | Áp suất trong vài giây |
+| --- | --- |
+| Đi trên mặt phẳng | Gần như không đổi |
+| Lên cầu thang | Giảm đều, khoảng 2–4 Pa/s |
+| Xuống cầu thang | Tăng đều, khoảng 2–4 Pa/s |
+| Đứng trong thang máy | Đổi nhanh nhưng không có bước chân, nên không tính là cầu thang |
+
+Áp suất tuyệt đối thay đổi theo thời tiết và theo tầng nhà, nên chỉ dùng **độ dốc** (mức thay đổi
+theo thời gian), không dùng giá trị tuyệt đối. Nhiệt độ của BMP280 và độ ẩm của AHT20 (nếu module
+có) không dùng để nhận diện.
+
+### Hai cách nhận diện
+
+| | Cách 1: trên ESP32 | Cách 2: mô hình trên Pi4 |
+| --- | --- | --- |
+| Cần huấn luyện | Không, chạy ngay khi gắn BMP280 | Có: thu dữ liệu cầu thang rồi huấn luyện lại |
+| Kết quả hiện ở | OLED (`LEN THANG` / `XUONG THANG`) và sự kiện `EVT,...,stairs` | Trang web và terminal (`Lên cầu thang` / `Xuống cầu thang`), OLED |
+| Độ chính xác | Chưa đo; ngưỡng ước tính từ vật lý | Đo được, ghi trong `report.md` của mô hình |
+| Tắt bằng | `-D STAIRS_DETECT=0` khi build | Dùng mô hình không có lớp cầu thang |
+
+Hai cách chạy song song. Khi ESP32 đang báo cầu thang, màn hình hiện kết quả của ESP32, đè lên
+kết quả Pi4 gửi về.
+
+### Cách 1: trên ESP32 (dùng ngay)
+
+1. Nối BMP280 chung bus với MPU6050: VCC → 3V3, GND → GND, SDA → GPIO21, SCL → GPIO22. Thêm tụ
+   100 nF giữa VCC và GND sát BMP280.
+2. Nạp `hw_test` để kiểm tra (mục 3): phải có dòng `[CHECK] BMP280 PASS`. Đặt yên rồi nâng bộ đeo
+   lên khoảng 1 m: giá trị `p=` phải giảm khoảng 12 Pa.
+3. Nạp lại `esp32dev_wifi`. Log có dòng `[BARO] BMP280 at 0x76; BARO records at 10 Hz.` (hoặc 0x77).
+4. Đeo và đi cầu thang. Sau khoảng 5–8 giây đi liên tục, log hiện `[STAIRS] up` (hoặc `down`),
+   OLED hiện `LEN THANG` (hoặc `XUONG THANG`). Đi tiếp trên mặt phẳng khoảng 2 giây thì log hiện
+   `[STAIRS] ended`.
+
+Cách hoạt động (`src/stairs_detector.h`): báo "lên" hoặc "xuống" khi trong 2 giây liền cả ba điều
+sau cùng đúng:
+
+- Người đeo đang bước đi: độ lệch chuẩn của độ lớn gia tốc trong 2 s từ 0,06 g trở lên.
+- Độ dốc áp suất trong 5 s gần nhất có độ lớn 1,2–10 Pa/s (khoảng 0,1–0,8 m/s theo chiều đứng).
+- Hai nửa của 5 s đó thay đổi cùng chiều, để bỏ qua một cú nhảy áp suất do đóng cửa hay bật quạt.
+
+Các ngưỡng được ước tính từ vật lý, **chưa chỉnh trên dữ liệu cầu thang thật**; hãy thử trên cầu
+thang thật trước khi tin vào kết quả.
+
+### Cách 2: mô hình trên Pi4
+
+1. Thu dữ liệu cho **cả 6 hoạt động** bằng bộ đeo có BMP280 (mục 6, đoạn "Thu dữ liệu cầu
+   thang"). `collector` tự ghi áp suất vào file `<phiên>.baro.csv`.
+2. Huấn luyện bằng `har train-own` (mục 7). Có phiên cầu thang trong dữ liệu thì mô hình tự học 6
+   hoạt động và dùng thêm đặc trưng độ dốc áp suất.
+3. Sửa `run_dir` trong `har_demo.toml` sang mô hình mới rồi chạy `har demo` hoặc `har live` như ở
+   mục 5.
+
+Dữ liệu mẫu `data/har_own` thu trước khi có BMP280, nên **mô hình mẫu `own_rf_01` chưa có lớp cầu
+thang** và không dùng chung dữ liệu với mô hình cầu thang được.
+
+## 9. Tham khảo: firmware bộ đeo
 
 Cả hai bản firmware (`esp32dev` và `esp32dev_wifi`) điều khiển các phần dưới đây. Phần nào không
 gắn thì firmware tự bỏ qua.
@@ -367,33 +436,7 @@ kết nối với Pi4. Chữ là tiếng Việt không dấu. Phần trăm pin c
 - `-D FALL_DETECT=0`: tắt phát hiện nghi té.
 - `-D STAIRS_DETECT=0`: tắt nhận diện cầu thang trên thiết bị.
 
-**BMP280 dùng để làm gì.** MPU6050 không đo được độ cao, nên đi trên mặt phẳng và đi cầu thang
-cho tín hiệu chuyển động gần giống nhau. Áp suất không khí giảm khoảng **12 Pa cho mỗi mét lên
-cao** (một tầng nhà khoảng 3 m, tức chừng 36 Pa), còn nhiễu của BMP280 với bộ lọc đang dùng chỉ
-cỡ 1–2 Pa. Vì vậy:
-
-| Tình huống | Áp suất trong vài giây |
-| --- | --- |
-| Đi trên mặt phẳng | Gần như không đổi |
-| Lên cầu thang | Giảm đều, khoảng 2–4 Pa/s |
-| Xuống cầu thang | Tăng đều, khoảng 2–4 Pa/s |
-
-Áp suất tuyệt đối thay đổi theo thời tiết và theo tầng nhà, nên cả hai cách dưới đây chỉ dùng
-**độ dốc** (mức thay đổi theo thời gian), không dùng giá trị tuyệt đối. Nhiệt độ của BMP280 và độ
-ẩm của AHT20 (nếu module có) không dùng để nhận diện.
-
-**Nhận diện cầu thang có hai cách, chạy song song:**
-
-1. **Trên ESP32, không cần huấn luyện** (`src/stairs_detector.h`). Báo "lên" hoặc "xuống" khi
-   trong 2 giây liền: người đeo đang chuyển động (độ lệch chuẩn của |a| trong 2 s từ 0,06 g trở
-   lên), độ dốc áp suất trong 5 s gần nhất có độ lớn 1,2–10 Pa/s, và hai nửa của 5 s đó cùng
-   chiều (để bỏ qua một bước nhảy áp suất do đóng cửa hay bật quạt). Đứng yên trong thang máy bị
-   bỏ qua vì không có chuyển động bước. Trở lại "không" sau 2 giây không còn thỏa điều kiện.
-   Thiết bị gửi `EVT,1,...,stairs,<1|-1|0>` (1 lên, −1 xuống, 0 kết thúc) và hiện `LEN THANG` /
-   `XUONG THANG` trên OLED, đè lên hoạt động Pi4 gửi về. Các ngưỡng được ước tính từ vật lý,
-   **chưa chỉnh trên dữ liệu cầu thang thật**.
-2. **Mô hình trên Pi4** (mục 6–7): huấn luyện với nhãn `stairs_up`, `stairs_down` và đặc trưng độ
-   dốc áp suất. Cách này đo được độ chính xác thật, nhưng chỉ có sau khi thu dữ liệu cầu thang.
+Nhận diện cầu thang trên thiết bị: xem [mục 8](#8-nhận-diện-lên--xuống-cầu-thang).
 
 **Phát hiện nghi té** (`src/fall_detector.h`). ESP32 tự bật cảnh báo, không cần Pi4, khi thấy đủ
 ba điều theo thứ tự:
@@ -409,7 +452,7 @@ thì không có va đập. Thả người xuống giường vẫn có thể báo
 **chưa được chỉnh trên dữ liệu té thật** và dựa trên cách đeo ở mục 2; hãy coi mỗi lần báo là
 "nghi té".
 
-## 9. Tham khảo: giao thức
+## 10. Tham khảo: giao thức
 
 ESP32 gửi mỗi bản ghi một dòng văn bản: qua USB 115200 baud (`esp32dev`), hoặc qua TCP cổng 8765,
 mỗi lúc một client (`esp32dev_wifi`).
@@ -450,7 +493,7 @@ Nhãn gồm chữ thường, số và dấu gạch dưới, tối đa 15 ký t�
 tiếp) gửi `ACT` mỗi giây khi có kết quả mới; quá 5 giây không có `ACT` thì màn hình hiện `--`. Hiện chưa có chương trình nào gửi `ALERT` (cảnh báo do chính ESP32
 bật); gõ tay vào Serial Monitor để thử còi và đèn.
 
-## 10. Kiểm tra phần mềm
+## 11. Kiểm tra phần mềm
 
 Chạy từ thư mục gốc của repo.
 
