@@ -64,7 +64,7 @@ sang hotspot khi mạng nhà mất.
 - Dữ liệu của **một người**, **một cách đeo**; chưa kiểm chứng trên người khác hay hướng đeo khác.
 - Buổi test chỉ có 2 phiên mỗi hoạt động, nên con số trên còn dao động nhiều.
 - Mô hình mẫu chưa có lớp lên/xuống cầu thang: dữ liệu mẫu thu trước khi có BMP280. Phần mềm đã
-  hỗ trợ (README, mục 6–8), nhưng cần thu dữ liệu cầu thang có áp suất rồi huấn luyện lại.
+  hỗ trợ (README, mục 8), nhưng cần thu dữ liệu cầu thang có áp suất rồi huấn luyện lại.
 - Nhận diện cầu thang trên ESP32 và phát hiện nghi té dùng ngưỡng ước tính, chưa được kiểm chứng
   trên dữ liệu thật.
 - Phần bộ đeo (nút, LED, còi, pin, OLED, BMP280) chưa chạy trên mạch thật.
