@@ -1,5 +1,6 @@
 import argparse
 from pathlib import Path
+import secrets
 import sys
 import time
 
@@ -9,6 +10,7 @@ from .demo_server import run_demo
 from .fake_esp32 import FakeEsp32
 from .inference import benchmark, predict_csv
 from .live_terminal import run_live
+from .runtime_config import load_runtime_config
 from .sources import parse_endpoint
 from .train import train_baseline
 from .train_own import train_own
@@ -22,6 +24,12 @@ def _port(text):
     if not 0 <= value <= 65535:
         raise argparse.ArgumentTypeError("port must be between 0 and 65535")
     return value
+
+
+def _settings(args, names):
+    """Command-line values override --config; the merged result is checked once."""
+    overrides = {name: getattr(args, name, None) for name in names}
+    return load_runtime_config(getattr(args, "config", None), overrides=overrides, required=names)
 
 
 def _positive_int(text):
@@ -56,15 +64,19 @@ def _parser():
     bench.add_argument("--csv", required=True)
     bench.add_argument("--output", required=True)
     esp_help = "ESP32 IP:port, e.g. 192.168.1.2:8765 (use the IP address; a host name can make stopping slower)"
+    config_help = "TOML file with esp, run_dir, data_dir, host, port; command-line options override it"
     demo = sub.add_parser("demo", help="web dashboard: live ESP32 or replay recorded sessions")
-    demo.add_argument("--run-dir", required=True)
-    demo.add_argument("--esp", required=True, help=esp_help)
-    demo.add_argument("--data-dir", required=True, help="folder with train/ and/or test/ sessions")
-    demo.add_argument("--host", default="0.0.0.0")
-    demo.add_argument("--port", type=_port, default=8080)
+    demo.add_argument("--config", help=config_help)
+    demo.add_argument("--run-dir", help="model folder (or run_dir in the config file)")
+    demo.add_argument("--esp", help=esp_help)
+    demo.add_argument("--data-dir", help="folder with train/ and/or test/ sessions")
+    demo.add_argument("--host", help="listen address, default 0.0.0.0")
+    demo.add_argument("--port", type=_port, help="listen port, default 8080")
+    sub.add_parser("new-token", help="print a random access token to put in har_demo.toml")
     live = sub.add_parser("live", help="print live predictions from the ESP32")
-    live.add_argument("--run-dir", required=True)
-    live.add_argument("--esp", required=True, help=esp_help)
+    live.add_argument("--config", help=config_help)
+    live.add_argument("--run-dir", help="model folder (or run_dir in the config file)")
+    live.add_argument("--esp", help=esp_help)
     live.add_argument("--max-predictions", type=_positive_int, help=argparse.SUPPRESS)
     fake = sub.add_parser("fake-esp32", help="serve a collector CSV as a fake ESP32 TCP stream")
     fake.add_argument("--csv", required=True)
@@ -106,10 +118,15 @@ def main(argv=None):
             print(f"median={result['median_s']:.6f}s p95={result['p95_s']:.6f}s "
                   f"criterion={result['criterion_p95_under_1_28']}")
         elif args.command == "demo":
-            return run_demo(Path(args.run_dir), args.esp, Path(args.data_dir), args.host, args.port)
+            s = _settings(args, ("run_dir", "esp", "data_dir", "host", "port"))
+            return run_demo(Path(s["run_dir"]), s["esp"], Path(s["data_dir"]), s["host"], s["port"],
+                            token=s.get("token"))
+        elif args.command == "new-token":
+            print(secrets.token_urlsafe(24))
         elif args.command == "live":
-            host, port = parse_endpoint(args.esp)
-            return run_live(Path(args.run_dir), host, port, max_predictions=args.max_predictions)
+            s = _settings(args, ("run_dir", "esp"))
+            host, port = parse_endpoint(s["esp"])
+            return run_live(Path(s["run_dir"]), host, port, max_predictions=args.max_predictions)
         elif args.command == "fake-esp32":
             fake = FakeEsp32(Path(args.csv), host=args.host, port=args.port, speed=args.speed).start()
             try:

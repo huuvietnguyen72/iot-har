@@ -1,10 +1,20 @@
 .pio
 .venv-har/
+.venv-report/
+# Real demo config holds the access token; only the .example file is committed.
+har_demo.toml
+# Personal editor workspaces and the report/slide bundle kept outside the repo.
+*.code-workspace
+dist/
 data/*
 !data/har_own/
 har_data/
 har_runs/*
 !har_runs/own_rf_01/
+# Sample model: only the files needed to load it; run reports stay local.
+har_runs/own_rf_01/*
+!har_runs/own_rf_01/model.joblib
+!har_runs/own_rf_01/metadata.json
 docs/
 __pycache__/
 src/wifi_secrets.h

@@ -1,8 +1,10 @@
 """HTTP + Server-Sent Events server for the live/replay demo (standard library only)."""
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import hmac
 import json
 import os
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 import queue
 import sys
 import threading
@@ -20,6 +22,8 @@ MAX_BODY_BYTES = 10_000
 SSE_SOCKET_TIMEOUT_S = 30
 TICK_ERROR_LOG_EVERY_S = 10
 PUBLIC_SESSION_KEYS = ("session_id", "split", "label", "started_utc")
+LOOPBACK = ("127.0.0.1", "localhost", "::1")
+HEALTHY_STATES = ("streaming", "replaying", "finished")
 
 
 def sse_message(event, data):
@@ -91,7 +95,8 @@ class _Gate:
 
 class DemoApp:
     def __init__(self, predictor, data_dir, esp_host, esp_port, *, live_factory=None,
-                 replay_factory=None):
+                 replay_factory=None, token=None):
+        self.token = token
         self.broadcaster = Broadcaster()
         self.pipeline = LivePipeline(predictor, self.broadcaster.publish)
         self._data_dir = Path(data_dir)
@@ -195,6 +200,7 @@ def make_handler(app):
     class Handler(BaseHTTPRequestHandler):
         server_version = "HARDemo/1"
         timeout = 10  # bounds body reads; _events replaces it with its own write timeout
+        _cookie_token = None  # set when the token arrived in the URL, so the browser keeps it
 
         def log_message(self, format, *args):  # keep the console for status lines
             pass
@@ -204,8 +210,31 @@ def make_handler(app):
             self.send_header("Content-Type", content_type)
             self.send_header("Content-Length", str(len(body)))
             self.send_header("Cache-Control", "no-store")
+            if self._cookie_token:
+                self.send_header("Set-Cookie", f"har_token={self._cookie_token}; Path=/; HttpOnly; SameSite=Strict")
             self.end_headers()
             self.wfile.write(body)
+
+        def _check_token(self, query):
+            """True when no token is configured or the request presents the right one."""
+            if app.token is None:
+                return True
+            auth = self.headers.get("Authorization") or ""
+            presented, from_url = "", False
+            if auth.startswith("Bearer "):
+                presented = auth[len("Bearer "):].strip()
+            for part in (self.headers.get("Cookie") or "").split(";"):
+                name, _, value = part.strip().partition("=")
+                if name == "har_token" and not presented:
+                    presented = value
+            if not presented and "token" in query:
+                presented, from_url = query["token"][0], True
+            if not hmac.compare_digest(presented.encode("utf-8"), app.token.encode("utf-8")):
+                self._json(401, {"error": "token required"})
+                return False
+            if from_url:
+                self._cookie_token = app.token
+            return True
 
         def _json(self, status, data):
             try:
@@ -215,8 +244,20 @@ def make_handler(app):
                 pass
 
         def do_GET(self):
-            path = self.path.split("?", 1)[0]
-            if path == "/":
+            url = urlsplit(self.path)
+            path = url.path
+            if not self._check_token(parse_qs(url.query)):
+                return
+            if path == "/health":
+                status = app.pipeline.snapshot()["status"]
+                ok = status["state"] in HEALTHY_STATES and not status["stale"]
+                self._json(200 if ok else 503, {
+                    "ok": ok, "mode": status["mode"], "state": status["state"],
+                    "endpoint": status.get("endpoint"), "rate_hz": status["rate_hz"],
+                    "missing": status["missing"], "restarts": status["restarts"],
+                    "parse_errors": status["parse_errors"], "stale": status["stale"],
+                    "predict_p95_ms": status["predict_p95_ms"]})
+            elif path == "/":
                 self._send(200, page, "text/html; charset=utf-8")
             elif path == "/api/sessions":
                 sessions = [{k: s[k] for k in PUBLIC_SESSION_KEYS} for s in app.sessions()]
@@ -227,6 +268,8 @@ def make_handler(app):
                 self._json(404, {"error": "not found"})
 
         def do_POST(self):
+            if not self._check_token(parse_qs(urlsplit(self.path).query)):
+                return
             if self.path.split("?", 1)[0] != "/api/mode":
                 self._json(404, {"error": "not found"})
                 return
@@ -309,14 +352,17 @@ def make_server(app, host, port):
     return _Server((host, port), make_handler(app))
 
 
-def run_demo(run_dir, esp, data_dir, host, port, *, out=None):
+def run_demo(run_dir, esp, data_dir, host, port, *, out=None, token=None):
     """Validate everything, then serve until Ctrl+C. Errors raise before the port opens."""
     out = out or sys.stdout
     esp_host, esp_port = parse_endpoint(esp)
     if not Path(data_dir).is_dir():
         raise ValueError(f"data directory not found: {data_dir}")
     predictor = LivePredictor(run_dir)
-    app = DemoApp(predictor, data_dir, esp_host, esp_port)
+    if token is None and host not in LOOPBACK:
+        raise ValueError("đặt token trong har_demo.toml khi lắng nghe ngoài 127.0.0.1 "
+                         "(tạo token bằng: python -m har new-token)")
+    app = DemoApp(predictor, data_dir, esp_host, esp_port, token=token)
     try:
         # Bind first: a port-in-use OSError propagates before any thread is started.
         server = make_server(app, host, port)
