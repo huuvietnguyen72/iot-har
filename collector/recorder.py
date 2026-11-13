@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import time
 
-from .protocol import ParseError, parse_line
+from .protocol import ParseError, parse_baro_line, parse_line
 from .tcp_transport import ConnectionLost
 
 WAIT_TIMEOUT_S = 60.0
@@ -13,7 +13,7 @@ GAP_TIMEOUT_S = 3.0
 class Recorder:
     def __init__(self, reader, tracker, sink, *, clock=time.monotonic,
                  progress=None, progress_interval_s=1.0, status_sink=None,
-                 net_tracker=None):
+                 net_tracker=None, baro_sink=None):
         self._reader = reader
         self._tracker = tracker
         self._sink = sink
@@ -22,6 +22,9 @@ class Recorder:
         self._progress_interval_s = progress_interval_s
         self._status_sink = status_sink
         self._net_tracker = net_tracker
+        self._baro_sink = baro_sink
+        self.baro_errors = 0
+        self.baro_other_stream = 0
 
     def run(self, duration_s):
         started_at = self._clock()
@@ -60,6 +63,9 @@ class Recorder:
                     self._tracker.record_error()
                     continue
                 if sample is None:
+                    if self._baro_sink is not None and line.startswith("BARO,"):
+                        self._record_baro(line, current_stream)
+                        continue
                     if self._net_tracker is not None and self._net_tracker.observe(line):
                         continue
                     if first_sample_at is None and self._status_sink is not None:
@@ -81,3 +87,15 @@ class Recorder:
                     host_elapsed = accepted_at - first_sample_at
                 last_accepted_at = accepted_at
                 self._sink(sample, host_elapsed)
+
+    def _record_baro(self, line, current_stream):
+        """Keep BARO readings of the stream being recorded; they never end a session."""
+        try:
+            baro = parse_baro_line(line)
+        except ParseError:
+            self.baro_errors += 1
+            return
+        if current_stream is None or baro.stream_id != current_stream:
+            self.baro_other_stream += 1  # before the first DATA sample, or another stream
+            return
+        self._baro_sink(baro)

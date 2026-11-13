@@ -19,6 +19,7 @@ class CollectResult:
     csv_path: Path | None
     json_path: Path
     stats: dict
+    baro_path: Path | None = None
 
 
 def collect(stream, *, output_dir, label, port, baud, duration_s,
@@ -32,7 +33,7 @@ def collect(stream, *, output_dir, label, port, baud, duration_s,
                            transport=transport_kind, endpoint=endpoint)
     recorder = Recorder(reader, tracker, writer.write, clock=clock,
                         progress=progress, status_sink=status_sink,
-                        net_tracker=net_tracker)
+                        net_tracker=net_tracker, baro_sink=writer.write_baro)
     try:
         status = recorder.run(duration_s)
     except KeyboardInterrupt:
@@ -41,4 +42,5 @@ def collect(stream, *, output_dir, label, port, baud, duration_s,
     telemetry = net_tracker.as_dict() if net_tracker is not None else None
     paths = writer.finalize(status, stats, telemetry=telemetry)
     return CollectResult(status=status, session_id=writer.session_id,
-                         csv_path=paths["csv"], json_path=paths["json"], stats=stats)
+                         csv_path=paths["csv"], json_path=paths["json"], stats=stats,
+                         baro_path=paths["baro"])

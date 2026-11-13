@@ -5,10 +5,11 @@ import time
 import numpy as np
 from threadpoolctl import threadpool_limits
 
-from .artifact import load_bundle, write_json
+from .artifact import load_bundle, uses_pressure, write_json
 from .collector_csv import load_collector_windows
-from .config import LABELS, WINDOW_SIZE
+from .config import WINDOW_SIZE
 from .features import extract_features
+from .pressure import baro_path_for
 
 SCOPE = "model_replay_not_activity_validation"
 
@@ -20,13 +21,36 @@ def _validate_windows(windows):
     return array
 
 
-def predict_windows(run_dir, windows):
+def _model_pressure(metadata, pressure):
+    """The pressure slopes to feed this model: None for motion-only models."""
+    if not uses_pressure(metadata):
+        return None
+    if pressure is None:
+        raise ValueError("this model needs barometer data (a .baro.csv next to the CSV)")
+    return pressure
+
+
+def load_csv_for_model(csv_path, metadata):
+    """Load a collector CSV (and its .baro.csv when present); for a pressure model keep only
+    the windows that have a barometer slope."""
+    baro = baro_path_for(csv_path)
+    loaded = load_collector_windows(Path(csv_path), baro if baro.is_file() else None)
+    if not uses_pressure(metadata):
+        return loaded.windows, None, loaded.records, loaded.quality
+    if loaded.pressure is None:
+        raise ValueError(f"this model needs barometer data: {baro.name} not found")
+    keep = np.isfinite(loaded.pressure)
+    records = [record for record, ok in zip(loaded.records, keep) if ok]
+    return loaded.windows[keep], loaded.pressure[keep], records, loaded.quality
+
+
+def predict_windows(run_dir, windows, pressure=None):
     array = _validate_windows(windows)
     estimator, metadata = load_bundle(run_dir)
     labels = [str(label) for label in estimator.classes_]
     if not len(array):
         return {"labels": labels, "predictions": [], "probabilities": []}
-    features = extract_features(array)
+    features = extract_features(array, _model_pressure(metadata, pressure))
     probabilities = estimator.predict_proba(features)
     predictions = estimator.predict(features)
     return {"labels": labels, "predictions": [str(p) for p in predictions],
@@ -34,31 +58,34 @@ def predict_windows(run_dir, windows):
 
 
 def predict_csv(run_dir, csv_path, output_path):
-    loaded = load_collector_windows(Path(csv_path))
-    predicted = predict_windows(run_dir, loaded.windows)
+    _, metadata = load_bundle(run_dir)
+    windows, pressure, window_records, quality = load_csv_for_model(csv_path, metadata)
+    predicted = predict_windows(run_dir, windows, pressure)
     records = []
-    for record, prediction, probabilities in zip(loaded.records, predicted["predictions"],
+    for record, prediction, probabilities in zip(window_records, predicted["predictions"],
                                                  predicted["probabilities"]):
         records.append(dict(record, prediction=prediction, probabilities=probabilities))
-    result = {"scope": SCOPE, "source_csv": str(csv_path), "quality": loaded.quality,
+    result = {"scope": SCOPE, "source_csv": str(csv_path), "quality": quality,
               "labels": predicted["labels"], "windows": records}
     write_json(Path(output_path), result)
     return result
 
 
-def benchmark(run_dir, windows, *, warmup=10, repeats=200, output_path=None):
+def benchmark(run_dir, windows, *, warmup=10, repeats=200, output_path=None, pressure=None):
     array = _validate_windows(windows)
     if not len(array):
         raise ValueError("benchmark needs at least one window")
     estimator, metadata = load_bundle(run_dir)
+    slopes = _model_pressure(metadata, pressure)
     if hasattr(estimator, "n_jobs"):
         estimator.n_jobs = 1
     durations = []
     with threadpool_limits(limits=1):
         for i in range(warmup + repeats):
-            window = array[i % len(array)][None]
+            index = i % len(array)
+            window = array[index][None]
             started = time.perf_counter()
-            features = extract_features(window)
+            features = extract_features(window, None if slopes is None else slopes[index:index + 1])
             estimator.predict(features)
             elapsed = time.perf_counter() - started
             if i >= warmup:

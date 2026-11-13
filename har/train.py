@@ -14,13 +14,14 @@ from .report import write_report
 from .tune import N_SPLITS, cv_select, make_grid, select_best
 
 
-def evaluate(y_true, y_pred):
+def evaluate(y_true, y_pred, labels=LABELS):
+    labels = list(labels)
     return {"accuracy": float(accuracy_score(y_true, y_pred)),
-            "macro_f1": float(f1_score(y_true, y_pred, labels=list(LABELS), average="macro",
+            "macro_f1": float(f1_score(y_true, y_pred, labels=labels, average="macro",
                                        zero_division=0)),
-            "per_class": classification_report(y_true, y_pred, labels=list(LABELS),
+            "per_class": classification_report(y_true, y_pred, labels=labels,
                                                output_dict=True, zero_division=0),
-            "confusion_matrix": confusion_matrix(y_true, y_pred, labels=list(LABELS)).tolist()}
+            "confusion_matrix": confusion_matrix(y_true, y_pred, labels=labels).tolist()}
 
 
 def per_group_accuracy(groups, labels, predictions):
@@ -35,7 +36,9 @@ def per_group_accuracy(groups, labels, predictions):
 
 
 def train_baseline(train, test, dataset_manifest, run_dir, *, grid=None, cv_groups=None,
-                   n_splits=N_SPLITS, title=None, per_group_test=False, extra=None):
+                   n_splits=N_SPLITS, title=None, per_group_test=False, extra=None,
+                   labels=LABELS, pressure=False):
+    """pressure=True appends each window's barometer slope (WindowSet.pressure) as a feature."""
     run = Path(run_dir)
     run.parent.mkdir(parents=True, exist_ok=True)
     run.mkdir(exist_ok=False)
@@ -43,14 +46,17 @@ def train_baseline(train, test, dataset_manifest, run_dir, *, grid=None, cv_grou
     try:
         if set(train.subjects) & set(test.subjects):
             raise ValueError("official train and test share subjects")
-        features = extract_features(train.windows)
+        if pressure and (train.pressure is None or test.pressure is None):
+            raise ValueError("pressure features need barometer slopes for train and test")
+        features = extract_features(train.windows, train.pressure if pressure else None)
         search = grid if grid is not None else make_grid()
         groups = train.subjects if cv_groups is None else np.asarray(cv_groups)
         method = (f"GroupKFold-{n_splits} macro-F1 on official train subjects" if cv_groups is None
                   else f"GroupKFold-{n_splits} macro-F1 on train session folds")
         print(f"Cross-validating {len(search)} Random Forest configs "
               f"(GroupKFold {n_splits}) on train...", flush=True)
-        cv_results = cv_select(features, train.labels, groups, n_splits=n_splits, grid=search)
+        cv_results = cv_select(features, train.labels, groups, n_splits=n_splits, grid=search,
+                               classes=labels)
         chosen = select_best(cv_results)
         write_json(run / "selection.json", {
             "method": method, "selected": chosen, "candidates": cv_results})
@@ -62,12 +68,13 @@ def train_baseline(train, test, dataset_manifest, run_dir, *, grid=None, cv_grou
         estimator.fit(features, train.labels)
         final_seconds = time.perf_counter() - started
         dummy = DummyClassifier(strategy="most_frequent").fit(features, train.labels)
-        test_features = extract_features(test.windows)
+        test_features = extract_features(test.windows, test.pressure if pressure else None)
         predictions = estimator.predict(test_features)
-        test_metrics = {"selected": evaluate(test.labels, predictions),
-                        "dummy": evaluate(test.labels, dummy.predict(test_features))}
+        test_metrics = {"selected": evaluate(test.labels, predictions, labels),
+                        "dummy": evaluate(test.labels, dummy.predict(test_features), labels)}
         oob = getattr(estimator, "oob_score_", None)
-        result = {"selected_config": chosen["config"], "cv_selection": cv_results,
+        result = {"labels": list(labels), "pressure_feature": bool(pressure),
+                  "selected_config": chosen["config"], "cv_selection": cv_results,
                   "selected_cv_mean_macro_f1": chosen["mean_macro_f1"],
                   "selected_cv_std_macro_f1": chosen["std_macro_f1"],
                   "oob_score": float(oob) if oob is not None else None,
@@ -92,7 +99,8 @@ def train_baseline(train, test, dataset_manifest, run_dir, *, grid=None, cv_grou
             "selection_method": f"GroupKFold-{n_splits}", "dataset_manifest": dataset_manifest,
             "created_utc": datetime.now(timezone.utc).isoformat(),
             "model_config": {k: v for k, v in estimator.get_params().items()
-                             if isinstance(v, (str, int, float, bool, type(None)))}})
+                             if isinstance(v, (str, int, float, bool, type(None)))}},
+            labels=labels, pressure=pressure)
         write_report(run, result)
         write_json(run / "status.json", {"status": "completed"}, replace=True)
         return result

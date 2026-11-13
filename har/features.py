@@ -1,14 +1,32 @@
 import numpy as np
 
 from .config import CHANNELS, CORRELATIONS, STATISTICS, WINDOW_SIZE
+from .pressure import PRESSURE_FEATURE
+
+N_MOTION_FEATURES = 70
 
 
-def feature_names():
-    return ([f"{channel}_{stat}" for channel in CHANNELS for stat in STATISTICS]
-            + [f"corr_{CHANNELS[a]}_{CHANNELS[b]}" for a, b in CORRELATIONS])
+def feature_names(pressure=False):
+    """70 motion features; with pressure=True, the barometer slope is appended as the 71st."""
+    names = ([f"{channel}_{stat}" for channel in CHANNELS for stat in STATISTICS]
+             + [f"corr_{CHANNELS[a]}_{CHANNELS[b]}" for a, b in CORRELATIONS])
+    return names + [PRESSURE_FEATURE] if pressure else names
 
 
-def extract_features(windows):
+def extract_features(windows, pressure=None):
+    """(N, 128, 6) windows -> (N, 70) features; pressure: optional (N,) slopes in Pa/s."""
+    features = _motion_features(windows)
+    if pressure is None:
+        return features
+    slopes = np.asarray(pressure, dtype=np.float64).reshape(-1)
+    if len(slopes) != len(features):
+        raise ValueError("need one pressure slope per window")
+    if not np.isfinite(slopes).all():
+        raise ValueError("missing or nonfinite pressure slope")
+    return np.column_stack((features, slopes))
+
+
+def _motion_features(windows):
     w = np.asarray(windows, dtype=np.float64)
     if w.ndim != 3 or w.shape[1:] != (WINDOW_SIZE, 6):
         raise ValueError("windows must have shape (N, 128, 6)")

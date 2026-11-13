@@ -5,7 +5,7 @@ import time
 import numpy as np
 from threadpoolctl import ThreadpoolController
 
-from .artifact import load_bundle
+from .artifact import load_bundle, uses_pressure
 from .config import WINDOW_SIZE
 from .features import extract_features
 
@@ -22,20 +22,26 @@ class LivePredictor:
         self._threadpools = ThreadpoolController()
         self._clock = clock
         self.metadata = metadata
+        self.uses_pressure = uses_pressure(metadata)  # needs a barometer slope per window
         self.labels = [str(label) for label in estimator.classes_]
         self._recent = deque(maxlen=SMOOTHING_WINDOWS)
 
     def reset(self):
         self._recent.clear()
 
-    def predict(self, window):
+    def predict(self, window, pressure_slope=None):
         array = np.asarray(window, dtype=np.float64)
         if array.shape != (WINDOW_SIZE, 6):
             raise ValueError("window must have shape (128, 6)")
+        pressure = None
+        if self.uses_pressure:
+            if pressure_slope is None:
+                raise ValueError("this model needs the window's barometer slope")
+            pressure = np.array([pressure_slope], dtype=np.float64)
         started = self._clock()
         with self._threadpools.limit(limits=1):
-            raw = np.asarray(self._estimator.predict_proba(extract_features(array[None]))[0],
-                             dtype=np.float64)
+            features = extract_features(array[None], pressure)
+            raw = np.asarray(self._estimator.predict_proba(features)[0], dtype=np.float64)
         predict_ms = (self._clock() - started) * 1000.0
         self._recent.append(raw)
         smoothed = np.mean(np.stack(self._recent), axis=0)

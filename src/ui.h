@@ -14,6 +14,7 @@ void uiSetLinkState(LinkState state);
 void uiSetActivity(const char *label);  // from CMD,1,ACT; goes stale after 5 s
 void uiSetAlert(bool on);               // from CMD,1,ALERT
 void uiSetBaroOk(bool ok);
+void uiSetStairs(int direction);       // on-device stairs hint: 1 up, -1 down, 0 none
 
 // Provided by the streaming code (main.cpp). Called from the UI task.
 void publishEvent(const char *name, long value);

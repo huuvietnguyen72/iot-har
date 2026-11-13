@@ -7,7 +7,8 @@ from .live_pipeline import TICK_S, LivePipeline
 from .live_predict import LivePredictor
 from .sources import EspSource
 
-NAMES = {"walk": "ĐI BỘ", "sit": "NGỒI", "stand": "ĐỨNG", "lie": "NẰM"}
+NAMES = {"walk": "ĐI BỘ", "sit": "NGỒI", "stand": "ĐỨNG", "lie": "NẰM",
+         "stairs_up": "LÊN THANG", "stairs_down": "XUỐNG THANG"}
 STATE_MESSAGES = {
     "connecting": "Đang tìm ESP32 ({endpoint})… lần thử {attempt}",
     "calibrating": "ESP32 đang hiệu chỉnh — để yên trên bàn",

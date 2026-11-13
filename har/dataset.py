@@ -21,6 +21,7 @@ class WindowSet:
     source_rows: np.ndarray
     split: str
     excluded_rows: int = 0
+    pressure: np.ndarray | None = None  # (N,) barometer slopes, or None without barometer
 
 
 def sha256_file(path):

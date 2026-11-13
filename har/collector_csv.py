@@ -6,6 +6,7 @@ import math
 import numpy as np
 
 from .config import STRIDE, WINDOW_SIZE
+from .pressure import load_baro_csv, window_slopes
 
 HEADER = ["session_id", "label", "stream_id", "seq", "device_time_us",
           "host_elapsed_s", "ax_g", "ay_g", "az_g", "gx_dps", "gy_dps", "gz_dps", "temp_c"]
@@ -17,6 +18,7 @@ class CollectorWindows:
     windows: np.ndarray
     records: list
     quality: dict
+    pressure: np.ndarray | None = None  # one slope (Pa/s) per window, NaN if too few readings
 
 
 def _int(text, name):
@@ -36,7 +38,8 @@ def _float(text, name):
     return value
 
 
-def load_collector_windows(csv_path):
+def load_collector_windows(csv_path, baro_path=None):
+    """Cut a collector CSV into windows; with baro_path, also compute each window's slope."""
     path = Path(csv_path)
     with path.open(newline="", encoding="utf-8-sig") as fh:
         reader = csv.reader(fh)
@@ -88,7 +91,11 @@ def load_collector_windows(csv_path):
                "incomplete_tail_samples": int(tail), "rejected_candidate_windows": int(crossing),
                "first_time_us": rows[0]["time_us"], "last_time_us": rows[-1]["time_us"]}
     stacked = np.stack(windows) if windows else np.empty((0, WINDOW_SIZE, 6))
-    return CollectorWindows(stacked, records, quality)
+    pressure = None
+    if baro_path is not None:
+        pressure = window_slopes(records, load_baro_csv(baro_path))
+        quality["windows_without_pressure"] = int(np.isnan(pressure).sum())
+    return CollectorWindows(stacked, records, quality, pressure)
 
 
 def _segment(rows):

@@ -25,7 +25,10 @@ def _complexity(config):
             + (config["class_weight"] is not None) + (config["max_features"] != "sqrt"))
 
 
-def cv_select(features, labels, subjects, *, n_splits=N_SPLITS, seed=SEED, grid=None):
+def cv_select(features, labels, subjects, *, n_splits=N_SPLITS, seed=SEED, grid=None,
+              classes=LABELS):
+    """classes: every activity the model must learn; each training fold must contain all."""
+    classes = list(classes)
     features = np.asarray(features, dtype=np.float64)
     labels = np.asarray(labels)
     subjects = np.asarray(subjects)
@@ -36,12 +39,12 @@ def cv_select(features, labels, subjects, *, n_splits=N_SPLITS, seed=SEED, grid=
     for config in (grid or make_grid()):
         scores = []
         for train_idx, test_idx in folds:
-            if set(labels[train_idx]) != set(LABELS):
+            if set(labels[train_idx]) != set(classes):
                 raise ValueError("a training fold is missing a class")
             model = RandomForestClassifier(random_state=seed, n_jobs=-1, **config)
             model.fit(features[train_idx], labels[train_idx])
             scores.append(float(f1_score(labels[test_idx], model.predict(features[test_idx]),
-                                         labels=list(LABELS), average="macro", zero_division=0)))
+                                         labels=classes, average="macro", zero_division=0)))
         results.append({"config": config, "fold_macro_f1": scores,
                         "mean_macro_f1": float(np.mean(scores)),
                         "std_macro_f1": float(np.std(scores))})

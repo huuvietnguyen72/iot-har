@@ -42,9 +42,16 @@ def uci_fixture(root):
     return root
 
 
+STAIRS_SLOPE_PA_S = {"stairs_up": -3.0, "stairs_down": 3.0}
+
+
 def write_own_session(folder, session_id, label, started_utc, *, seconds=20, csv_label=None,
-                      write_csv=True, meta=None):
-    """Write one collector-format session (CSV + JSON) with a label-dependent signal."""
+                      write_csv=True, meta=None, baro=False):
+    """Write one collector-format session (CSV + JSON) with a label-dependent signal.
+
+    Stairs labels move like walk; with baro=True a <session>.baro.csv is written whose
+    pressure falls (stairs_up) or rises (stairs_down) by 3 Pa/s and is flat otherwise.
+    """
     import json
     import zlib
 
@@ -72,6 +79,19 @@ def write_own_session(folder, session_id, label, started_utc, *, seconds=20, csv
             "stats": {"samples_written": count, "data_errors": 0, "missing_by_seq": 0,
                       "duplicates": 0, "out_of_order": 0, "timestamp_errors": 0,
                       "gaps_over_40ms": 0}}
+    if baro:
+        from har.pressure import BARO_HEADER
+
+        slope = STAIRS_SLOPE_PA_S.get(label, 0.0)
+        baro_rows = [",".join(BARO_HEADER)]
+        for i in range(0, count, 5):
+            t_us = i * 20000 + 500
+            pressure = 100000.0 + slope * t_us / 1e6 + rng.normal(0, 0.3)
+            baro_rows.append(",".join([session_id, "a" * 16, str(i), str(t_us),
+                                       f"{pressure:.2f}", "28.00"]))
+        baro_name = f"{session_id}.baro.csv"
+        (folder / baro_name).write_text("\n".join(baro_rows) + "\n", encoding="utf-8")
+        data["baro_file"] = baro_name
     for key, value in (meta or {}).items():
         if isinstance(value, dict) and isinstance(data.get(key), dict):
             data[key] = {**data[key], **value}
@@ -82,17 +102,20 @@ def write_own_session(folder, session_id, label, started_utc, *, seconds=20, csv
     return path
 
 
-def write_own_dataset(root, *, train_sessions=4, test_sessions=2):
+def write_own_dataset(root, *, train_sessions=4, test_sessions=2, labels=None, baro=False):
     """Interleaved train/test sessions: <split>-<label>-<k>, 3 minutes apart."""
     from har.config import LABELS
+
+    labels = labels or LABELS
 
     root = Path(root)
     dirs = {"train": root / "train", "test": root / "test"}
     minute = 0
     for split, per_label in (("train", train_sessions), ("test", test_sessions)):
         for k in range(per_label):
-            for label in LABELS:
+            for label in labels:
                 write_own_session(dirs[split], f"{split}-{label}-{k}", label,
-                                  f"2026-10-14T{8 + minute // 60:02d}:{minute % 60:02d}:00Z")
+                                  f"2026-10-14T{8 + minute // 60:02d}:{minute % 60:02d}:00Z",
+                                  baro=baro)
                 minute += 3
     return dirs["train"], dirs["test"]

@@ -18,6 +18,8 @@ CSV_HEADER = [
     "host_elapsed_s", "ax_g", "ay_g", "az_g", "gx_dps", "gy_dps", "gz_dps", "temp_c",
 ]
 
+BARO_HEADER = ["session_id", "stream_id", "seq", "device_time_us", "pressure_pa", "temp_c"]
+
 SENSOR_CONFIG = {
     "accel_range_g": 4,
     "gyro_range_dps": 500,
@@ -51,6 +53,9 @@ class SessionWriter:
         self._csv_fh = None
         self._csv_writer = None
         self._rows_since_flush = 0
+        self._baro_fh = None
+        self._baro_writer = None
+        self._baro_rows = 0
         self._stream_id = None
         for _ in range(MAX_ID_ATTEMPTS):
             candidate = id_factory()
@@ -71,7 +76,10 @@ class SessionWriter:
     def _csv_path(self):
         return self.output_dir / f"{self.session_id}.csv"
 
-    def _metadata(self, status, stats, csv_file, telemetry=None):
+    def _baro_path(self):
+        return self.output_dir / f"{self.session_id}.baro.csv"
+
+    def _metadata(self, status, stats, csv_file, telemetry=None, baro_file=None):
         finished = None
         if status != "recording":
             finished = datetime.now(timezone.utc)
@@ -89,6 +97,8 @@ class SessionWriter:
             "requested_duration_s": self.requested_duration_s,
             "stream_id": self._stream_id,
             "csv_file": csv_file,
+            "baro_file": baro_file,
+            "baro_samples": self._baro_rows,
             "sensor_config": SENSOR_CONFIG,
             "firmware_counters_first": telemetry["first"] if telemetry else None,
             "firmware_counters_last": telemetry["last"] if telemetry else None,
@@ -114,17 +124,36 @@ class SessionWriter:
             self._csv_fh.flush()
             self._rows_since_flush = 0
 
+    def write_baro(self, baro):
+        """Append one BMP280 reading to <session_id>.baro.csv (created on the first one)."""
+        if self._baro_fh is None:
+            self._baro_fh = open(self._baro_path(), "x", encoding="utf-8", newline="")
+            self._baro_writer = csv.writer(self._baro_fh)
+            self._baro_writer.writerow(BARO_HEADER)
+        self._baro_writer.writerow([self.session_id, baro.stream_id, baro.seq,
+                                    baro.device_time_us, f"{baro.pressure_pa:.2f}",
+                                    f"{baro.temp_c:.2f}"])
+        self._baro_rows += 1
+        if self._baro_rows % FLUSH_EVERY_ROWS == 0:
+            self._baro_fh.flush()
+
     def finalize(self, status, stats, telemetry=None):
         csv_path = None
         if self._csv_fh is not None:
             self._csv_fh.flush()
             self._csv_fh.close()
             csv_path = self._csv_path()
+        baro_path = None
+        if self._baro_fh is not None:
+            self._baro_fh.flush()
+            self._baro_fh.close()
+            baro_path = self._baro_path()
         tmp_path = self._json_path().with_suffix(".json.tmp")
         with open(tmp_path, "w", encoding="utf-8") as handle:
             json.dump(self._metadata(status, stats,
                                      csv_file=csv_path.name if csv_path else None,
-                                     telemetry=telemetry),
+                                     telemetry=telemetry,
+                                     baro_file=baro_path.name if baro_path else None),
                       handle, indent=2, ensure_ascii=False)
         os.replace(tmp_path, self._json_path())
-        return {"csv": csv_path, "json": self._json_path()}
+        return {"csv": csv_path, "json": self._json_path(), "baro": baro_path}
