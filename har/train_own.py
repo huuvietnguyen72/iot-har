@@ -1,20 +1,24 @@
-"""Train and evaluate the four-activity model on the user's own labelled sessions."""
+"""Train and evaluate the activity model on the user's own labelled sessions.
+
+Four activities always; stairs_up / stairs_down are added when the train sessions contain
+them, and then the barometer slope is used as an extra feature (every session needs a
+barometer file).
+"""
 from collections import Counter
 import json
 from pathlib import Path
 
 import numpy as np
 
-from .artifact import load_bundle, write_json
-from .config import LABELS
+from .artifact import load_bundle, uses_pressure, write_json
+from .config import STAIRS_LABELS
 from .features import extract_features
-from .own_dataset import (N_OWN_SPLITS, TRIM_US, load_own_sessions, require_session_counts,
-                          session_fold_groups)
+from .own_dataset import (N_OWN_SPLITS, TRIM_US, load_own_sessions, model_labels,
+                          require_session_counts, session_fold_groups)
 from .train import evaluate, train_baseline
 
-TITLE = "Dữ liệu MPU6050 đeo ở eo — 1 người (phương án A)"
-NOTES = ["Nguồn: phiên collector có nhãn do một người đeo; đánh giá theo phiên/buổi, "
-         "không theo người.", "",
+TITLE = "Dữ liệu MPU6050 đeo ở eo"
+NOTES = ["Nguồn: phiên collector có nhãn; đánh giá theo phiên/buổi, không theo người.", "",
          "Cross-validation chạy trên một buổi train nên chỉ dùng để chọn cấu hình; "
          "điểm báo cáo là buổi test giữ riêng."]
 CV_METHOD = (f"GroupKFold {N_OWN_SPLITS} fold theo thứ tự phiên trong từng hoạt động "
@@ -26,12 +30,18 @@ def _accepted(sessions):
 
 
 def _format_counts(counts):
-    return ", ".join(f"{label}={counts[label]}" for label in LABELS)
+    return ", ".join(f"{label}={count}" for label, count in counts.items())
 
 
-def compare_on_test(compare_run, test):
+def compare_on_test(compare_run, test, labels):
     estimator, metadata = load_bundle(compare_run)
-    metrics = evaluate(test.labels, estimator.predict(extract_features(test.windows)))
+    pressure = None
+    if uses_pressure(metadata):
+        if test.pressure is None:
+            raise ValueError(f"{compare_run} needs barometer data in every test session")
+        pressure = test.pressure
+    predictions = estimator.predict(extract_features(test.windows, pressure))
+    metrics = evaluate(test.labels, predictions, labels)
     return {"run_dir": str(compare_run), "model_sha256": metadata["model_sha256"],
             "accuracy": metrics["accuracy"], "macro_f1": metrics["macro_f1"],
             "confusion_matrix": metrics["confusion_matrix"]}
@@ -44,17 +54,33 @@ def train_own(train_dir, test_dir, run_dir, *, compare_run=None, grid=None):
         for entry in sessions:
             if not entry["accepted"]:
                 print(f"[{split}] rejected {entry['json_file']}: {entry['reason']}", flush=True)
-    train_counts = require_session_counts(train_sessions, "train")
-    test_counts = require_session_counts(test_sessions, "test")
+    labels = model_labels(train_sessions)
+    unknown = sorted({s["label"] for s in test_sessions if s["accepted"]} - set(labels))
+    if unknown:
+        raise ValueError(f"test has activities that train does not: {', '.join(unknown)}")
+    train_counts = require_session_counts(train_sessions, "train", labels)
+    test_counts = require_session_counts(test_sessions, "test", labels)
+    pressure = any(label in STAIRS_LABELS for label in labels)
+    if pressure:
+        for split, window_set, sessions in (("train", train, train_sessions),
+                                            ("test", test, test_sessions)):
+            if window_set.pressure is None:
+                missing = [s["session_id"] for s in sessions
+                           if s["accepted"] and not s["has_pressure"]]
+                raise ValueError(
+                    "stairs sessions need barometer data in every session; "
+                    f"{split} sessions without a .baro.csv: {', '.join(missing)}")
+        print("using the barometer slope as an extra feature (stairs labels present)",
+              flush=True)
     shared = sorted(set(train.subjects.tolist()) & set(test.subjects.tolist()))
     if shared:
         raise ValueError(f"sessions appear in both train and test: {', '.join(shared)}")
     for split, window_set, counts in (("train", train, train_counts), ("test", test, test_counts)):
         windows = Counter(window_set.labels.tolist())
         print(f"{split}: sessions {_format_counts(counts)}; "
-              f"windows {_format_counts({label: windows[label] for label in LABELS})}",
+              f"windows {_format_counts({label: windows[label] for label in labels})}",
               flush=True)
-    folds = session_fold_groups(train_sessions)
+    folds = session_fold_groups(train_sessions, labels=labels)
     for entry in train_sessions:
         entry["fold"] = folds.get(entry["session_id"]) if entry["accepted"] else None
     cv_groups = np.array([folds[session_id] for session_id in train.subjects])
@@ -68,8 +94,9 @@ def train_own(train_dir, test_dir, run_dir, *, compare_run=None, grid=None):
                 "csv_sha256": {s["session_id"]: s["csv_sha256"] for s in accepted}}
     extra = {"notes": NOTES, "cv_method": CV_METHOD, "test_heading": "Buổi test giữ riêng"}
     if compare_run is not None:
-        extra["comparison"] = compare_on_test(compare_run, test)
+        extra["comparison"] = compare_on_test(compare_run, test, labels)
     result = train_baseline(train, test, manifest, run_dir, grid=grid, cv_groups=cv_groups,
-                            n_splits=N_OWN_SPLITS, title=TITLE, per_group_test=True, extra=extra)
+                            n_splits=N_OWN_SPLITS, title=TITLE, per_group_test=True, extra=extra,
+                            labels=labels, pressure=pressure)
     write_json(Path(run_dir) / "sessions.json", sessions_payload)
     return result

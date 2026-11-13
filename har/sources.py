@@ -6,10 +6,11 @@ import re
 import time
 
 from collector.line_reader import SerialLineReader
-from collector.protocol import ParseError, parse_line
+from collector.protocol import ParseError, parse_baro_line, parse_line
 from collector.tcp_transport import ConnectionLost, TcpTransport
 
 from .own_dataset import _metadata_problem, parse_utc
+from .pressure import baro_path_for, load_baro_csv
 from .stream_windows import StreamSample, read_csv_samples
 
 REPLAY_SPEEDS = (1, 2, 4)
@@ -84,9 +85,13 @@ class ReplaySource:
         schedule_s = 0.0
         previous = None
         path = None
+        forward = getattr(sink, "pressure", None)
         try:
             for path in self._paths:
                 first = True
+                baro = baro_path_for(path)
+                readings = load_baro_csv(baro) if forward and baro.is_file() else []
+                next_reading = 0
                 for sample in read_csv_samples(path):
                     if stop.is_set():
                         return
@@ -102,6 +107,11 @@ class ReplaySource:
                         sleep(delay)
                     if stop.is_set():
                         return
+                    # BMP280 readings recorded up to this sample, in device-time order.
+                    while (next_reading < len(readings)
+                           and readings[next_reading][1] <= sample.time_us):
+                        forward(*readings[next_reading])
+                        next_reading += 1
                     sink.sample(sample)
         except (OSError, ValueError, csv.Error) as exc:
             name = path.name if path is not None else "replay"
@@ -197,6 +207,18 @@ class EspSource:
             if not stop.is_set():
                 stop.wait(self._retry_s)
 
+    @staticmethod
+    def _forward_baro(sink, line):
+        """Pass a BMP280 reading to sinks that use it; a malformed one is dropped."""
+        forward = getattr(sink, "pressure", None)
+        if forward is None:
+            return
+        try:
+            baro = parse_baro_line(line)
+        except ParseError:
+            return
+        forward(baro.stream_id, baro.device_time_us, baro.pressure_pa)
+
     def _read(self, transport, sink, stop, attempt, parse_errors):
         """Read one connection until it drops or stop is set; return (attempt, parse_errors)."""
         reader = SerialLineReader(transport)
@@ -222,6 +244,9 @@ class EspSource:
                     if stop.is_set():
                         break
                     got_line = True
+                    if line.startswith("BARO,"):
+                        self._forward_baro(sink, line)
+                        continue
                     if not (got_data or calibrating) and _is_calibrating_net(line):
                         calibrating = True
                         sink.status(state="calibrating", attempt=attempt, message=None)

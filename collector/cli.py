@@ -145,6 +145,8 @@ def main(argv=None, *, open_serial_fn=open_serial, open_tcp_fn=open_tcp,
     print(f"json: {result.json_path}")
     if result.csv_path is not None:
         print(f"csv:  {result.csv_path}")
+    if result.baro_path is not None:
+        print(f"baro: {result.baro_path}")
     if result.status == "completed":
         if any(result.stats.get(key, 0) for key in QUALITY_KEYS):
             print("warning: quality issues detected; review JSON stats", file=sys.stderr)

@@ -41,7 +41,7 @@ class TrainOwnTests(unittest.TestCase):
             self.assertEqual(len(manifest["train_sessions"]), 16)
             self.assertEqual(len(manifest["csv_sha256"]), 24)
             report = (run / "report.md").read_text(encoding="utf-8")
-            self.assertIn("phương án A", report)
+            self.assertIn("Dữ liệu MPU6050 đeo ở eo", report)
 
     def test_session_in_both_splits_is_error(self):
         with TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):

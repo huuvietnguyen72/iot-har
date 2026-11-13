@@ -7,10 +7,13 @@
 <style>
 :root { --bg:#f6f7f9; --card:#ffffff; --text:#1d232b; --muted:#66707c; --line:#d9dee4;
   --walk:#237a52; --sit:#2f6bc0; --stand:#9a6512; --lie:#7a4dbb; --warn:#b5482d;
-  --walk-t:#237a52; --sit-t:#2f6bc0; --stand-t:#9a6512; --lie-t:#7a4dbb; --err:#b5482d; }
+  --stairs_up:#0f7c86; --stairs_down:#a8456b;
+  --walk-t:#237a52; --sit-t:#2f6bc0; --stand-t:#9a6512; --lie-t:#7a4dbb; --err:#b5482d;
+  --stairs_up-t:#0f7c86; --stairs_down-t:#a8456b; }
 @media (prefers-color-scheme: dark) {
   :root { --bg:#14171b; --card:#1d2127; --text:#e8ecf0; --muted:#9aa4af; --line:#333a43;
-    --walk-t:#4cc38a; --sit-t:#6ea6f0; --stand-t:#e0a84a; --lie-t:#b48ce8; --err:#ff8a70; }
+    --walk-t:#4cc38a; --sit-t:#6ea6f0; --stand-t:#e0a84a; --lie-t:#b48ce8; --err:#ff8a70;
+    --stairs_up-t:#4fc7cf; --stairs_down-t:#e98bb0; }
 }
 * { box-sizing:border-box; }
 body { margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
@@ -86,8 +89,9 @@ main { display:grid; grid-template-columns:minmax(260px,1fr) 2fr; gap:16px; padd
 </main>
 <script>
 "use strict";
-const NAMES = {walk: "Đi bộ", sit: "Ngồi", stand: "Đứng", lie: "Nằm"};
-const ICONS = {walk: "🚶", sit: "🪑", stand: "🧍", lie: "🛌"};
+const NAMES = {walk: "Đi bộ", sit: "Ngồi", stand: "Đứng", lie: "Nằm",
+               stairs_up: "Lên cầu thang", stairs_down: "Xuống cầu thang"};
+const ICONS = {walk: "🚶", sit: "🪑", stand: "🧍", lie: "🛌", stairs_up: "⬆️", stairs_down: "⬇️"};
 const STEP_S = 1.28;
 const CHART_S = 10;
 const STATE_TEXT = {

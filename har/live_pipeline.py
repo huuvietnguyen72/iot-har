@@ -5,6 +5,7 @@ import time
 
 import numpy as np
 
+from .pressure import pressure_slope
 from .stream_windows import StreamWindower
 
 HISTORY_LIMIT = 2000
@@ -15,6 +16,9 @@ STATUS_EVERY_S = 1.0
 SAMPLE_PERIOD_S = 0.02
 TICK_S = 0.2
 SAMPLE_BATCH_LIMIT = 1000
+BARO_HISTORY = 300  # 30 s of BMP280 readings at 10 Hz
+NO_PRESSURE_MESSAGE = ("Mô hình cần dữ liệu áp suất nhưng không nhận được dòng BARO "
+                       "(kiểm tra BMP280)")
 
 
 class LivePipeline:
@@ -39,6 +43,7 @@ class LivePipeline:
             self._windower = StreamWindower()
             self._predictor.reset()
             self._history = deque(maxlen=HISTORY_LIMIT)
+            self._baro = deque(maxlen=BARO_HISTORY)
             self._latest = None
             self._batch = deque(maxlen=SAMPLE_BATCH_LIMIT)
             self._arrivals = deque()
@@ -63,6 +68,17 @@ class LivePipeline:
                 self._status["stale"] = False
             self._status.update(fields)
             self._send_status()
+
+    def pressure(self, stream_id, time_us, pressure_pa):
+        """One BMP280 reading; only used when the model has the pressure feature."""
+        with self._lock:
+            self._baro.append((stream_id, time_us, pressure_pa))
+
+    def _window_pressure(self, record):
+        inside = [(t, p) for stream_id, t, p in self._baro
+                  if stream_id == record["stream_id"]
+                  and record["start_time_us"] <= t <= record["end_time_us"]]
+        return pressure_slope([t for t, _ in inside], [p for _, p in inside])
 
     def sample(self, s):
         with self._lock:
@@ -116,7 +132,18 @@ class LivePipeline:
                     "latest": self._latest, "history": list(self._history)}
 
     def _predict(self, window):
-        result = self._predictor.predict(window.window)
+        if getattr(self._predictor, "uses_pressure", False):
+            slope = self._window_pressure(window.record)
+            if slope is None:
+                if self._status["message"] != NO_PRESSURE_MESSAGE:
+                    self._status["message"] = NO_PRESSURE_MESSAGE
+                    self._send_status()
+                return
+            if self._status["message"] == NO_PRESSURE_MESSAGE:
+                self._status["message"] = None
+            result = self._predictor.predict(window.window, slope)
+        else:
+            result = self._predictor.predict(window.window)
         self._predict_ms.append(result["predict_ms"])
         event = dict(result, index=self._index, time=self._wall(),
                      true_label=window.record["label"], session=window.record["session_id"])

@@ -92,6 +92,10 @@ class _Gate:
         if not self._stop.is_set():
             self._pipeline.status(**fields)
 
+    def pressure(self, stream_id, time_us, pressure_pa):
+        if not self._stop.is_set():
+            self._pipeline.pressure(stream_id, time_us, pressure_pa)
+
 
 class DemoApp:
     def __init__(self, predictor, data_dir, esp_host, esp_port, *, live_factory=None,

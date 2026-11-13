@@ -35,14 +35,17 @@ def write_report(run_dir, results):
     lines += ["", "## Selected model per-class metrics", "",
               "| Label | Precision | Recall | F1 | Support |",
               "| --- | ---: | ---: | ---: | ---: |"]
-    for label in LABELS:
+    labels = results.get("labels", list(LABELS))
+    if results.get("pressure_feature"):
+        lines[1:1] = ["", "Mô hình dùng thêm đặc trưng áp suất (độ dốc Pa/s trong mỗi cửa sổ)."]
+    for label in labels:
         row = results["test"]["selected"]["per_class"][label]
         lines.append(f"| {label} | {row['precision']:.6f} | {row['recall']:.6f} | "
                      f"{row['f1-score']:.6f} | {int(row['support'])} |")
     lines += ["", "## Confusion matrix (hàng thật, cột dự đoán)", "",
-              "| True / predicted | walk | sit | stand | lie |",
-              "| --- | ---: | ---: | ---: | ---: |"]
-    for label, row in zip(LABELS, results["test"]["selected"]["confusion_matrix"]):
+              "| True / predicted | " + " | ".join(labels) + " |",
+              "| --- |" + " ---: |" * len(labels)]
+    for label, row in zip(labels, results["test"]["selected"]["confusion_matrix"]):
         lines.append("| " + label + " | " + " | ".join(map(str, row)) + " |")
     if results.get("test_groups"):
         lines += ["", "## Độ chính xác theo từng phiên test", "",

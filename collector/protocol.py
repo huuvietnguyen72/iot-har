@@ -1,4 +1,4 @@
-"""Parse DATA records of the MPU6050 USB collector protocol v1."""
+"""Parse DATA and BARO records of the MPU6050 collector protocol v1."""
 from __future__ import annotations
 
 import math
@@ -8,6 +8,7 @@ from dataclasses import dataclass
 PROTOCOL_VERSION = 1
 STREAM_ID_RE = re.compile(r"^[0-9a-f]{16}$")
 FIELD_COUNT = 12
+BARO_FIELD_COUNT = 7
 
 
 class ParseError(ValueError):
@@ -25,6 +26,16 @@ class Sample:
     gx_dps: float
     gy_dps: float
     gz_dps: float
+    temp_c: float
+
+
+@dataclass(frozen=True)
+class BaroSample:
+    """One BMP280 reading, taken right after DATA sample `seq` of the same stream."""
+    stream_id: str
+    seq: int
+    device_time_us: int
+    pressure_pa: float
     temp_c: float
 
 
@@ -73,3 +84,26 @@ def parse_line(line: str) -> Sample | None:
         gz_dps=_parse_float(fields[10], "gz_dps"),
         temp_c=_parse_float(fields[11], "temp_c"),
     )
+
+
+def parse_baro_line(line: str) -> BaroSample | None:
+    """BARO,1,<stream_id>,<seq>,<time_us>,<pressure_pa>,<temp_c>; None for other lines."""
+    line = line.strip("\r\n")
+    if not line.startswith("BARO,"):
+        return None
+    fields = line.split(",")
+    if len(fields) != BARO_FIELD_COUNT:
+        raise ParseError(f"BARO record has {len(fields)} fields, expected {BARO_FIELD_COUNT}")
+    if fields[1] != str(PROTOCOL_VERSION):
+        raise ParseError(f"unsupported BARO version: {fields[1]!r}")
+    if not STREAM_ID_RE.match(fields[2]):
+        raise ParseError(f"invalid stream_id: {fields[2]!r}")
+    seq = _parse_int(fields[3], "seq")
+    if seq > 0xFFFFFFFF:
+        raise ParseError(f"seq out of range: {seq}")
+    pressure = _parse_float(fields[5], "pressure_pa")
+    if not 30000.0 <= pressure <= 110000.0:
+        raise ParseError(f"pressure_pa out of range: {pressure}")
+    return BaroSample(stream_id=fields[2], seq=seq,
+                      device_time_us=_parse_int(fields[4], "device_time_us"),
+                      pressure_pa=pressure, temp_c=_parse_float(fields[6], "temp_c"))

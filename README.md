@@ -6,7 +6,8 @@ tới Raspberry Pi 4. Pi4 chạy mô hình **Random Forest** nhận diện **đi
 
 Bộ đeo có thể gắn thêm nút nhấn, hai LED, còi, mạch đo pin, màn hình OLED và cảm biến áp suất
 BMP280. Pi4 gửi hoạt động vừa nhận diện về để hiện trên màn hình; ESP32 tự bật cảnh báo khi nghi
-té. Các phần thêm này là tùy chọn: chỉ có ESP32 + MPU6050 thì hệ thống vẫn chạy.
+té. BMP280 đo thay đổi độ cao, dùng để nhận ra **lên và xuống cầu thang** (mục 8). Các phần thêm
+này là tùy chọn: chỉ có ESP32 + MPU6050 thì hệ thống vẫn chạy.
 
 ```text
 MPU6050 ─┐                  Wi-Fi TCP 8765
@@ -17,8 +18,9 @@ nút, LED, còi, pin┘
 ```
 
 > **Trạng thái:** luồng ESP32 + MPU6050 → Pi4 → trang web đã chạy và đã đo. Phần bộ đeo (nút,
-> LED, còi, pin, OLED, BMP280, phát hiện nghi té) và script cài dịch vụ trên Pi4 đã build và qua
-> test trên máy tính, nhưng **chưa chạy trên phần cứng thật**.
+> LED, còi, pin, OLED, BMP280, phát hiện nghi té, nhận diện cầu thang) và script cài dịch vụ trên
+> Pi4 đã build và qua test trên máy tính, nhưng **chưa chạy trên phần cứng thật**. Mô hình mẫu
+> chưa có lớp cầu thang vì chưa thu dữ liệu cầu thang.
 
 ## Repo có gì
 
@@ -227,7 +229,8 @@ Mỗi **phiên** là một lần ghi một hoạt động, cho ra hai file `<ses
 
 - **Buổi train:** 4 phiên × 120 s cho mỗi hoạt động, vào `data/my/train/`.
 - **Buổi test:** thu vào **một ngày khác**, 2 phiên × 120 s cho mỗi hoạt động, vào `data/my/test/`.
-- Nhãn đúng một trong `walk`, `sit`, `stand`, `lie`.
+- Nhãn đúng một trong `walk`, `sit`, `stand`, `lie`; thêm `stairs_up`, `stairs_down` nếu muốn
+  mô hình nhận ra cầu thang (xem đoạn "Thu dữ liệu cầu thang" bên dưới).
 - Trong một buổi, thu xen kẽ walk → sit → stand → lie, không thu một hoạt động nhiều lần liền nhau.
 - Hiệu chỉnh ESP32 trên bàn trước (chờ `[CAL] DONE`) rồi mới đeo. Luôn đeo cùng vị trí và hướng.
 - Nếu firmware có phát hiện nghi té, nên build với `-D FALL_DETECT=0` khi thu dữ liệu để còi không
@@ -269,6 +272,25 @@ Mã thoát của `collector`: 0 hoàn tất; 130 dừng bằng Ctrl+C; 3 không 
 
 Cột của CSV: `session_id,label,stream_id,seq,device_time_us,host_elapsed_s,ax_g,ay_g,az_g,gx_dps,gy_dps,gz_dps,temp_c`.
 
+**Áp suất.** Nếu bộ đeo có BMP280, `collector` tự ghi thêm file `<session_id>.baro.csv` (cột
+`session_id,stream_id,seq,device_time_us,pressure_pa,temp_c`, khoảng 10 dòng mỗi giây) và ghi tên
+file vào trường `baro_file` của JSON. Không có BMP280 thì không có file này.
+
+**Thu dữ liệu cầu thang.** Cần BMP280 và cần file áp suất ở **mọi** phiên, kể cả phiên
+walk/sit/stand/lie, vì mô hình cầu thang dùng áp suất cho mọi cửa sổ. Dữ liệu mẫu `data/har_own`
+thu trước khi có BMP280 nên không dùng chung được; hãy thu lại cả 6 hoạt động.
+
+- Nhãn `stairs_up` (đi lên) và `stairs_down` (đi xuống), mỗi nhãn ít nhất 4 phiên ở buổi train và
+  1 phiên ở buổi test, giống các hoạt động khác.
+- Một lần đi cầu thang thường ngắn hơn 120 s, nên dùng `--duration 40` hoặc dài hơn nếu tòa nhà
+  có nhiều tầng. 5 giây đầu và 5 giây cuối mỗi phiên bị bỏ khi huấn luyện, nên hãy bắt đầu bước
+  ngay khi lệnh chạy và đi liên tục đến hết thời gian.
+- Không thu trong thang máy và không dừng lại ở chiếu nghỉ giữa phiên.
+
+```bash
+python3 -m collector --tcp <IP-ESP32>:8765 --duration 40 --label stairs_up --output data/my/train
+```
+
 ## 7. Huấn luyện mô hình của bạn
 
 Huấn luyện trên laptop (nhanh hơn Pi4), rồi chép thư mục mô hình sang Pi4. Mỗi lần huấn luyện cần
@@ -280,8 +302,16 @@ một thư mục mô hình **mới** (lệnh không ghi đè thư mục đã có
 ```
 
 Lệnh in ra các phiên bị loại kèm lý do (trạng thái khác `completed`, thang đo khác ±4 g/±500 °/s,
-nhãn lạ, lỗi truyền, quá ngắn), chọn cấu hình bằng cross-validation trên buổi train, rồi chấm trên
-buổi test. Kết quả nằm trong `har_runs/my_rf_01/`:
+nhãn lạ, lỗi truyền, quá ngắn, thiếu file áp suất đã khai báo), chọn cấu hình bằng
+cross-validation trên buổi train, rồi chấm trên buổi test.
+
+Nếu buổi train có phiên `stairs_up` hoặc `stairs_down`, mô hình học 6 hoạt động và dùng thêm đặc
+trưng **độ dốc áp suất** (Pa/giây trong mỗi cửa sổ 2,56 s). Khi đó mọi phiên phải có file
+`.baro.csv`, nếu không lệnh báo lỗi và liệt kê các phiên thiếu. Mô hình có cầu thang cũng cần
+BMP280 khi chạy `demo` và `live`; nếu ESP32 không gửi dòng `BARO`, trang web báo "Mô hình cần dữ
+liệu áp suất…" và không đưa ra kết luận.
+
+Kết quả nằm trong `har_runs/my_rf_01/`:
 
 - `model.joblib`, `metadata.json`: mô hình, dùng cho `demo` và `live`.
 - `report.md`: macro-F1, ma trận nhầm lẫn, độ chính xác theo từng phiên. Đọc file này để quyết định
@@ -307,7 +337,7 @@ gắn thì firmware tự bỏ qua.
 
 | Phần | Chân | Hoạt động |
 | --- | --- | --- |
-| MPU6050, BMP280 | SDA 21, SCL 22 | BMP280 (0x76/0x77) được đọc sau mỗi mẫu `DATA` thứ 5, tức 10 lần/giây |
+| MPU6050, BMP280 | SDA 21, SCL 22 | BMP280 (0x76/0x77) được đọc sau mỗi mẫu `DATA` thứ 5, tức 10 lần/giây, để nhận ra cầu thang |
 | OLED 0,96" 128×64 | SDA 19, SCL 18 | Bus I2C riêng để việc vẽ không làm trễ mẫu 50 Hz. Địa chỉ 0x3C hoặc 0x3D |
 | LED xanh, LED đỏ | 26, 27 | Xem bảng đèn bên dưới |
 | Nút nhấn | 32 → GND | Nhấn: bật màn hình 10 giây, hủy cảnh báo. Giữ 2 giây: gửi SOS |
@@ -335,6 +365,35 @@ kết nối với Pi4. Chữ là tiếng Việt không dấu. Phần trăm pin c
 - `-D BUZZER_PASSIVE=1`: còi thụ động, cần xung 2,7 kHz. Dùng khi trong `hw_test` chỉ phím `t`
   làm còi kêu.
 - `-D FALL_DETECT=0`: tắt phát hiện nghi té.
+- `-D STAIRS_DETECT=0`: tắt nhận diện cầu thang trên thiết bị.
+
+**BMP280 dùng để làm gì.** MPU6050 không đo được độ cao, nên đi trên mặt phẳng và đi cầu thang
+cho tín hiệu chuyển động gần giống nhau. Áp suất không khí giảm khoảng **12 Pa cho mỗi mét lên
+cao** (một tầng nhà khoảng 3 m, tức chừng 36 Pa), còn nhiễu của BMP280 với bộ lọc đang dùng chỉ
+cỡ 1–2 Pa. Vì vậy:
+
+| Tình huống | Áp suất trong vài giây |
+| --- | --- |
+| Đi trên mặt phẳng | Gần như không đổi |
+| Lên cầu thang | Giảm đều, khoảng 2–4 Pa/s |
+| Xuống cầu thang | Tăng đều, khoảng 2–4 Pa/s |
+
+Áp suất tuyệt đối thay đổi theo thời tiết và theo tầng nhà, nên cả hai cách dưới đây chỉ dùng
+**độ dốc** (mức thay đổi theo thời gian), không dùng giá trị tuyệt đối. Nhiệt độ của BMP280 và độ
+ẩm của AHT20 (nếu module có) không dùng để nhận diện.
+
+**Nhận diện cầu thang có hai cách, chạy song song:**
+
+1. **Trên ESP32, không cần huấn luyện** (`src/stairs_detector.h`). Báo "lên" hoặc "xuống" khi
+   trong 2 giây liền: người đeo đang chuyển động (độ lệch chuẩn của |a| trong 2 s từ 0,06 g trở
+   lên), độ dốc áp suất trong 5 s gần nhất có độ lớn 1,2–10 Pa/s, và hai nửa của 5 s đó cùng
+   chiều (để bỏ qua một bước nhảy áp suất do đóng cửa hay bật quạt). Đứng yên trong thang máy bị
+   bỏ qua vì không có chuyển động bước. Trở lại "không" sau 2 giây không còn thỏa điều kiện.
+   Thiết bị gửi `EVT,1,...,stairs,<1|-1|0>` (1 lên, −1 xuống, 0 kết thúc) và hiện `LEN THANG` /
+   `XUONG THANG` trên OLED, đè lên hoạt động Pi4 gửi về. Các ngưỡng được ước tính từ vật lý,
+   **chưa chỉnh trên dữ liệu cầu thang thật**.
+2. **Mô hình trên Pi4** (mục 6–7): huấn luyện với nhãn `stairs_up`, `stairs_down` và đặc trưng độ
+   dốc áp suất. Cách này đo được độ chính xác thật, nhưng chỉ có sau khi thu dữ liệu cầu thang.
 
 **Phát hiện nghi té** (`src/fall_detector.h`). ESP32 tự bật cảnh báo, không cần Pi4, khi thấy đủ
 ba điều theo thứ tự:
@@ -369,25 +428,26 @@ STAT,1,<stream_id>,<device_time_us>,<vbat_mv>,<percent>,<rssi_dbm>,<flags>
 - `[NET]`: mỗi giây (chỉ bản Wi-Fi), đếm số mẫu bị bỏ khi mạng chậm. ESP32 vẫn giữ nhịp 50 Hz.
 - `BARO`: áp suất, `seq` là số thứ tự của mẫu `DATA` vừa đọc trước đó.
 - `EVT`: `button` (nhấn nút, `value` là số lần), `sos` (giữ nút 2 giây), `fall_suspect` (`value`
-  là `seq` lúc đó), `alert_on`, `alert_cancel`.
+  là `seq` lúc đó), `stairs` (`value` 1 lên, −1 xuống, 0 kết thúc), `alert_on`, `alert_cancel`.
 - `STAT`: mỗi 10 giây. `vbat_mv = 0` và `percent = -1` nghĩa là không đo được pin. `flags` là tổng
   của: 1 = BMP280 hoạt động, 2 = có OLED, 4 = đang cảnh báo, 8 = pin yếu.
 - `stream_id` để trống cho đến khi hiệu chỉnh gyro xong.
 - Dòng bắt đầu bằng `[SCAN]`, `[CAL]`, `[ID]`, `[READY]`, `[WIFI]`, `[BARO]`, `[UI]`, `[FALL]`,
-  `[ERROR]`… là thông báo, không phải dữ liệu.
+  `[STAIRS]`, `[ERROR]`… là thông báo, không phải dữ liệu.
 
-`collector` và `har` chỉ đọc `DATA` và `[NET]`, bỏ qua mọi dòng khác. Áp suất đi bằng dòng `BARO`
+`collector` đọc `DATA`, `[NET]` và `BARO` (ghi vào `.baro.csv`). `har` đọc `DATA`, `[NET]`, và
+`BARO` khi mô hình có đặc trưng áp suất. Các dòng khác bị bỏ qua. Áp suất đi bằng dòng `BARO`
 riêng để dòng `DATA,1` giữ nguyên 12 trường, nên dữ liệu và mô hình cũ vẫn dùng được.
 
 Lệnh gửi về ESP32, mỗi lệnh một dòng (qua TCP, hoặc gõ vào Serial Monitor để thử):
 
 ```text
-CMD,1,ACT,<label>     hoạt động vừa nhận diện (chữ thường, số, dấu gạch dưới; tối đa 15 ký tự)
+CMD,1,ACT,<label>     hoạt động vừa nhận diện: walk, sit, stand, lie, stairs_up, stairs_down…
 CMD,1,ALERT,<0|1>     bật / tắt cảnh báo té
 ```
 
-`har demo` và `har live` (chế độ trực tiếp) gửi `ACT` mỗi giây khi có kết quả mới; quá 5 giây không
-có `ACT` thì màn hình hiện `--`. Hiện chưa có chương trình nào gửi `ALERT` (cảnh báo do chính ESP32
+Nhãn gồm chữ thường, số và dấu gạch dưới, tối đa 15 ký tự. `har demo` và `har live` (chế độ trực
+tiếp) gửi `ACT` mỗi giây khi có kết quả mới; quá 5 giây không có `ACT` thì màn hình hiện `--`. Hiện chưa có chương trình nào gửi `ALERT` (cảnh báo do chính ESP32
 bật); gõ tay vào Serial Monitor để thử còi và đèn.
 
 ## 10. Kiểm tra phần mềm
@@ -406,7 +466,7 @@ Test C++ chạy trên máy tính (cần `g++`):
 
 ```bash
 for t in calibration data_stream net_protocol bmp280 button battery indicator \
-         wearable_protocol display_view fall_detector; do
+         wearable_protocol display_view fall_detector stairs_detector; do
   g++ -std=c++11 -Wall -Wextra -Werror test/${t}_test.cpp -o ${t}_test && ./${t}_test
 done
 ```
@@ -432,6 +492,8 @@ python -m unittest discover -s har/tests -t . -v
 | Build lỗi khi tạo file tạm | Đường dẫn dự án có dấu tiếng Việt; xem ghi chú đầu mục 3. |
 | `collector` báo `Permission denied` | Chạy `sudo usermod -aG dialout "$USER"` rồi đăng nhập lại. |
 | Nhận diện sai nhiều | Kiểm tra cách đeo (mục 2). Nếu người đeo hoặc cách đeo khác dữ liệu mẫu, thu dữ liệu và huấn luyện lại (mục 6–7). |
+| `Mô hình cần dữ liệu áp suất…` | Mô hình có lớp cầu thang nhưng ESP32 không gửi dòng `BARO`. Kiểm tra BMP280 bằng `hw_test`, hoặc dùng mô hình không có cầu thang. |
+| `stairs sessions need barometer data in every session` | Khi huấn luyện cầu thang, mọi phiên phải có `.baro.csv`. Thu lại các phiên được liệt kê với bộ đeo có BMP280. |
 
 ## Giấy phép
 

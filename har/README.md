@@ -6,7 +6,7 @@ Hướng dẫn từng bước cho người mới nằm ở [README chính](../RE
 
 | Lệnh | Dùng để |
 | --- | --- |
-| `train-own` | Huấn luyện trên dữ liệu MPU6050 tự thu (mô hình dùng cho demo) |
+| `train-own` | Huấn luyện trên dữ liệu MPU6050 tự thu (mô hình dùng cho demo); có thể thêm lớp cầu thang |
 | `demo` | Trang web: trực tiếp từ ESP32 hoặc phát lại phiên đã thu |
 | `live` | In kết quả trực tiếp ra terminal |
 | `fake-esp32` | Giả lập ESP32 bằng một file CSV đã thu, để thử không cần phần cứng |
@@ -38,11 +38,16 @@ thư viện, và mô hình chỉ nạp được khi phiên bản khớp.
 - Không trừ trung bình gia tốc theo cửa sổ: hướng trọng lực là thông tin chính để phân biệt
   sit/stand/lie.
 - Cửa sổ bị cắt khi mất mẫu (nhảy `seq`) hoặc có khoảng trống > 40 ms.
+- Nhãn: luôn có `walk`, `sit`, `stand`, `lie`; thêm `stairs_up`, `stairs_down` khi dữ liệu train có.
+- Áp suất (nếu có `.baro.csv`): độ dốc bình phương tối thiểu (Pa/s) của các lần đọc BMP280 nằm
+  trong thời gian của cửa sổ, cần ít nhất 10 lần đọc (`har/pressure.py`). Cửa sổ thiếu áp suất
+  bị bỏ khi huấn luyện mô hình có áp suất.
 
 ## Đặc trưng và mô hình
 
 - 70 đặc trưng: 8 kênh (`ax..gz`, độ lớn gia tốc, độ lớn gyro) × 8 thống kê (mean, std, min, max,
   median, rms, mean_abs, iqr), cộng 6 hệ số tương quan giữa các trục.
+- Mô hình có lớp cầu thang dùng thêm đặc trưng thứ 71 `pressure_slope_pa_s`.
 - **Random Forest**, `n_estimators=300`; chọn `max_features ∈ {sqrt, 0.3}`,
   `min_samples_leaf ∈ {1, 2, 4}`, `max_depth ∈ {None, 16}`,
   `class_weight ∈ {None, balanced_subsample}` bằng cross-validation, chấm theo **macro-F1**.
@@ -58,6 +63,9 @@ Cách thu dữ liệu: README chính, mục 6. Huấn luyện:
 ```
 
 - `--run-dir` phải là thư mục chưa tồn tại; lệnh không ghi đè mô hình cũ.
+- Có phiên `stairs_up`/`stairs_down` trong train thì mô hình học 6 lớp và dùng đặc trưng áp suất;
+  mọi phiên (train và test) phải có `.baro.csv`. Có áp suất nhưng không có phiên cầu thang thì mô
+  hình vẫn chỉ dùng 70 đặc trưng chuyển động. Buổi test không được có hoạt động mà train không có.
 - `--compare-run <thư mục mô hình>` (tùy chọn): chấm thêm một mô hình có sẵn trên cùng buổi test.
 - Phiên bị loại (trạng thái khác `completed`, thang đo khác ±4 g/±500 °/s, nhãn lạ, có lỗi truyền,
   thiếu CSV, quá ngắn) được in kèm lý do và ghi vào `sessions.json`.
@@ -91,7 +99,10 @@ python -m har fake-esp32 --csv data/har_own/test/<phiên>.csv --port 8765  # ESP
   "ESP32 đang bận"). Chuyển sang *Phát lại* sẽ ngắt kết nối ESP32. 5 s không nhận được dòng nào thì
   coi là mất kết nối và tự kết nối lại. Khi trang báo "Lỗi: …", bấm *Trực tiếp* để chạy lại.
 - `fake-esp32` đổi stream id mỗi vòng lặp CSV nên trang báo "ESP32 vừa khởi động lại" mỗi vòng;
-  `--speed` tua nhanh (mặc định 1.0).
+  `--speed` tua nhanh (mặc định 1.0). Nếu cạnh CSV có `.baro.csv`, nó gửi cả dòng `BARO`.
+- Mô hình có đặc trưng áp suất: `demo`/`live` đọc dòng `BARO` từ ESP32, chế độ phát lại đọc
+  `.baro.csv` cạnh CSV. Thiếu áp suất thì không đưa ra kết luận và trang báo "Mô hình cần dữ liệu
+  áp suất…".
 - `har live` trả mã 1 nếu nguồn ESP32 dừng vì lỗi, 0 khi Ctrl+C, 130 nếu Ctrl+C lúc đang khởi động.
 - **Token:** khi lắng nghe ngoài `127.0.0.1`, `demo` từ chối chạy nếu chưa có `token`. Trình duyệt
   gửi token qua `?token=` lần đầu, sau đó trang đặt cookie `HttpOnly` nên không cần gõ lại; công cụ
@@ -109,7 +120,7 @@ python -m har fake-esp32 --csv data/har_own/test/<phiên>.csv --port 8765  # ESP
 | File | Nội dung |
 | --- | --- |
 | `model.joblib` | Mô hình đã huấn luyện |
-| `metadata.json` | Schema, 70 tên đặc trưng, đơn vị, phiên bản thư viện, seed, hash của mô hình |
+| `metadata.json` | Schema, nhãn, tên đặc trưng (70, hoặc 71 nếu có áp suất), đơn vị, phiên bản thư viện, seed, hash của mô hình |
 | `report.md`, `report.json` | Điểm trên tập test, ma trận nhầm lẫn, độ chính xác từng phiên |
 | `selection.json` | Điểm cross-validation của từng cấu hình |
 | `sessions.json` | Phiên được dùng và phiên bị loại (chỉ `train-own`) |
@@ -143,6 +154,7 @@ MPU6050 vì hệ trục và cách gắn khác (xem `KET_QUA.md`).
 & ".\.venv-har\Scripts\python.exe" -m har benchmark --run-dir <thư mục mô hình> --csv <phiên>.csv --output benchmark.json
 ```
 
+Với mô hình có áp suất, hai lệnh này đọc `.baro.csv` cạnh CSV và chỉ dùng các cửa sổ có áp suất.
 `predict-csv` chỉ chạy lại đường suy luận trên một CSV, **không** chấm độ chính xác (kết quả có
 `scope = model_replay_not_activity_validation`); điểm chính thức nằm trong `report.md`.
 `benchmark` đo thời gian trích đặc trưng + dự đoán một cửa sổ; tiêu chí là p95 dưới 1,28 s.

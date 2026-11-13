@@ -1,4 +1,8 @@
-"""A stand-in for the ESP32 TCP server: streams a collector CSV as DATA,1 lines."""
+"""A stand-in for the ESP32 TCP server: streams a collector CSV as DATA,1 lines.
+
+When a <session>.baro.csv sits next to the CSV, its readings are sent as BARO,1 lines right
+after the DATA line with the same seq, as the firmware does.
+"""
 import csv
 import math
 from pathlib import Path
@@ -10,6 +14,7 @@ import threading
 import time
 
 from .collector_csv import HEADER
+from .pressure import BARO_HEADER, baro_path_for
 
 SAMPLE_PERIOD_S = 0.02
 NET_PERIOD_S = 1.0
@@ -35,6 +40,18 @@ def read_csv_fields(csv_path):
     return rows
 
 
+def read_baro_fields(csv_path):
+    """{seq: (device_time_us, pressure_pa, temp_c)} from the .baro.csv next to csv_path."""
+    path = baro_path_for(csv_path)
+    if not path.is_file():
+        return {}
+    with path.open(newline="", encoding="utf-8-sig") as fh:
+        reader = csv.reader(fh)
+        if next(reader, None) != BARO_HEADER:
+            raise ValueError("unexpected barometer CSV header")
+        return {row[2]: (row[3], row[4], row[5]) for row in reader if len(row) == len(BARO_HEADER)}
+
+
 def _net_line(stream_id):
     return f"[NET],1,{stream_id},0,0\n".encode()
 
@@ -47,6 +64,7 @@ class FakeEsp32:
         if not (math.isfinite(speed) and speed > 0):
             raise ValueError("speed must be a positive number")
         self._rows = read_csv_fields(csv_path) if csv_path is not None else None
+        self._baro = read_baro_fields(csv_path) if csv_path is not None else {}
         self._speed = float(speed)
         self._loop = loop
         self._preamble = tuple(preamble)
@@ -174,6 +192,10 @@ class FakeEsp32:
                     conn.sendall(_net_line(stream_id))
                     last_net = now
                 conn.sendall((",".join(("DATA", "1", stream_id, *fields)) + "\n").encode())
+                baro = self._baro.get(fields[0])
+                if baro is not None:
+                    conn.sendall((",".join(("BARO", "1", stream_id, fields[0], *baro)) + "\n")
+                                 .encode())
                 sent += 1
             if not self._loop:
                 return

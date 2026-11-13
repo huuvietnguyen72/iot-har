@@ -4,11 +4,11 @@ import secrets
 import sys
 import time
 
-from .collector_csv import load_collector_windows
 from .dataset import load_split, prepare_dataset
 from .demo_server import run_demo
 from .fake_esp32 import FakeEsp32
-from .inference import benchmark, predict_csv
+from .artifact import load_bundle
+from .inference import benchmark, load_csv_for_model, predict_csv
 from .live_terminal import run_live
 from .runtime_config import load_runtime_config
 from .sources import parse_endpoint
@@ -113,8 +113,10 @@ def main(argv=None):
             predict_csv(Path(args.run_dir), Path(args.csv), Path(args.output))
             print(f"wrote {args.output}")
         elif args.command == "benchmark":
-            loaded = load_collector_windows(Path(args.csv))
-            result = benchmark(Path(args.run_dir), loaded.windows, output_path=Path(args.output))
+            _, metadata = load_bundle(Path(args.run_dir))
+            windows, pressure, _, _ = load_csv_for_model(Path(args.csv), metadata)
+            result = benchmark(Path(args.run_dir), windows, output_path=Path(args.output),
+                               pressure=pressure)
             print(f"median={result['median_s']:.6f}s p95={result['p95_s']:.6f}s "
                   f"criterion={result['criterion_p95_under_1_28']}")
         elif args.command == "demo":

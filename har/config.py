@@ -1,4 +1,6 @@
-LABELS = ("walk", "sit", "stand", "lie")
+LABELS = ("walk", "sit", "stand", "lie")  # every model has these four
+STAIRS_LABELS = ("stairs_up", "stairs_down")  # optional; need barometer data
+ALLOWED_LABELS = LABELS + STAIRS_LABELS
 LABEL_MAP = {1: "walk", 4: "sit", 5: "stand", 6: "lie"}
 WINDOW_SIZE = 128
 STRIDE = 64
