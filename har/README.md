@@ -82,13 +82,21 @@ Huấn luyện lại (`--compare-run` là tùy chọn, chấm thêm một mô h�
 ## Demo trực tiếp / phát lại (`demo`, `live`)
 
 Không cần cài thêm gói
-(web server dùng thư viện chuẩn). Trên Pi4 chạy từ `~/har-baseline` (cần cả `har/` và `collector/`).
+(web server dùng thư viện chuẩn, file cấu hình đọc bằng `tomllib` nên cần Python 3.11 trở lên).
+Trên Pi4 chạy từ `~/har-baseline` (cần cả `har/` và `collector/`).
 Tham số thêm: `demo --host/--port` (mặc định `0.0.0.0:8080`), `fake-esp32 --speed` (mặc định 1.0).
 
+Cấu hình đặt trong file TOML (mẫu: [`har_demo.example.toml`](har_demo.example.toml)) với các khóa
+`esp`, `run_dir`, `data_dir`, `host`, `port`, `token`; tham số dòng lệnh ghi đè giá trị trong file.
+
 ```bash
-# Trang web (mở http://<IP-Pi4>:8080 trên laptop/điện thoại)
-python -m har demo --run-dir har_runs/own_rf_01 --esp 192.168.1.2:8765 --data-dir data/har_own
-# Dòng lệnh (chỉ trực tiếp; Ctrl+C để dừng)
+# Tạo token truy cập rồi ghi vào har_demo.toml: token = "..."
+python -m har new-token
+# Trang web (mở http://<IP-Pi4>:8080/?token=<token> trên laptop/điện thoại)
+python -m har demo --config har_demo.toml
+# Dòng lệnh (chỉ trực tiếp; Ctrl+C để dừng; không cần token)
+python -m har live --config har_demo.toml
+# Không dùng file cấu hình
 python -m har live --run-dir har_runs/own_rf_01 --esp 192.168.1.2:8765
 # Thử trên laptop không cần phần cứng: ESP32 giả rồi trỏ demo vào nó
 python -m har fake-esp32 --csv data/har_own/test/<phiên>.csv --port 8765
@@ -108,7 +116,14 @@ python -m har demo --run-dir har_runs/own_rf_01 --esp 127.0.0.1:8765 --data-dir 
   giây vì ESP32 chưa bỏ kết nối cũ). Khi trang báo "Lỗi: …", bấm *Trực tiếp* để chạy lại.
 - `fake-esp32` đổi stream id mỗi vòng lặp CSV nên trang sẽ báo "ESP32 vừa khởi động lại" mỗi vòng.
 - `har live` trả mã 1 nếu nguồn ESP32 dừng vì lỗi, 0 khi Ctrl+C, 130 nếu Ctrl+C lúc đang khởi động.
-- Không có đăng nhập: mọi máy trong mạng xem và đổi chế độ được; dùng `--host 127.0.0.1` để giới hạn.
+- Bảo vệ bằng token: khi lắng nghe ngoài `127.0.0.1`, `demo` từ chối chạy nếu chưa có `token`.
+  Trình duyệt gửi token qua `?token=` lần đầu, sau đó trang đặt cookie `HttpOnly` nên không cần
+  gõ lại; công cụ khác gửi header `Authorization: Bearer <token>`. Sai hoặc thiếu token trả 401.
+  Token chỉ là một lớp bảo vệ trong mạng nội bộ: kết nối là HTTP thường, không mã hóa.
+- `GET /health` (cũng cần token) trả JSON trạng thái, mã 200 khi đang nhận dữ liệu hoặc phát
+  lại, 503 khi chưa có dữ liệu hoặc dữ liệu bị trễ.
+- `deploy/install_pi.sh` cài demo thành dịch vụ systemd `har-demo` trong `/opt/har`, cấu hình ở
+  `/etc/har/har_demo.toml`. Chưa chạy thử trên Pi4 thật.
 
 ## Artifact
 

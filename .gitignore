@@ -1,5 +1,11 @@
 .pio
 .venv-har/
+.venv-report/
+# Real demo config holds the access token; only the .example file is committed.
+har_demo.toml
+# Personal editor workspaces and the report/slide bundle kept outside the repo.
+*.code-workspace
+dist/
 data/*
 !data/har_own/
 har_data/

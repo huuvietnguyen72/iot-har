@@ -149,3 +149,47 @@ class LiveDemoCliTests(unittest.TestCase):
             code, _, err = self.run_main(["fake-esp32", "--csv", str(bad), "--port", "0"])
         self.assertEqual(code, 1)
         self.assertIn("error:", err)
+
+
+class ConfigFileCliTests(unittest.TestCase):
+    def run_main(self, argv):
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = main(argv)
+        return code, out.getvalue(), err.getvalue()
+
+    def test_config_supplies_missing_values(self):
+        with TemporaryDirectory() as tmp:
+            cfg = Path(tmp) / "har_demo.toml"
+            cfg.write_text('esp = "127.0.0.1:1"\nrun_dir = "missing-run"\n', encoding="utf-8")
+            code, _, err = self.run_main(["demo", "--config", str(cfg)])
+        self.assertEqual(code, 1)
+        self.assertIn("missing data_dir", err)
+
+    def test_command_line_overrides_config(self):
+        with TemporaryDirectory() as tmp:
+            cfg = Path(tmp) / "har_demo.toml"
+            cfg.write_text('esp = "not-an-endpoint"\nrun_dir = "r"\ndata_dir = "d"\n', encoding="utf-8")
+            code, _, err = self.run_main(["demo", "--config", str(cfg), "--esp", "127.0.0.1:1",
+                                          "--data-dir", str(Path(tmp) / "missing")])
+        self.assertEqual(code, 1)
+        self.assertIn("data directory not found", err)
+        self.assertNotIn("host:port", err)
+
+    def test_missing_config_file_is_error(self):
+        with TemporaryDirectory() as tmp:
+            code, _, err = self.run_main(["live", "--config", str(Path(tmp) / "nope.toml")])
+        self.assertEqual(code, 1)
+        self.assertIn("config file not found", err)
+
+
+class NewTokenCliTests(unittest.TestCase):
+    def test_new_token_prints_strong_distinct_tokens(self):
+        outputs = []
+        for _ in range(2):
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                self.assertEqual(main(["new-token"]), 0)
+            outputs.append(out.getvalue().strip())
+        self.assertGreaterEqual(len(outputs[0]), 32)
+        self.assertNotEqual(outputs[0], outputs[1])

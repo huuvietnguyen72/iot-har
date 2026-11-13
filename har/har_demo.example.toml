@@ -1,0 +1,10 @@
+# Sao chép thành har_demo.toml rồi sửa cho máy của bạn.
+# Dùng với:  python -m har demo --config har_demo.toml
+#            python -m har live --config har_demo.toml
+# Tham số trên dòng lệnh luôn ghi đè giá trị trong file.
+
+esp = "172.20.10.2:8765"            # IP và cổng ESP32 (nên dùng IP, không dùng tên máy)
+run_dir = "har_runs/own_rf_01"      # thư mục mô hình
+data_dir = "data/har_own"           # thư mục chứa train/ và test/ để phát lại
+host = "0.0.0.0"                    # địa chỉ trang web lắng nghe (mặc định 0.0.0.0)
+port = 8080                         # cổng trang web (mặc định 8080)

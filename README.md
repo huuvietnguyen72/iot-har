@@ -92,6 +92,8 @@ Nút, LED, còi, OLED, BMP280 và mạch đo pin là tùy chọn; chân nối �
 
 ### 2. Cài đặt trên Pi4 (một lần)
 
+Cần Python 3.11 trở lên (Raspberry Pi OS Bookworm đã có sẵn).
+
 ```bash
 sudo apt update
 sudo apt install git python3-venv
@@ -103,6 +105,31 @@ python3 -m venv .venv-har
 
 Repo đã kèm mô hình `har_runs/own_rf_01` và dữ liệu `data/har_own` nên không cần huấn luyện lại.
 
+Tạo file cấu hình từ mẫu, sửa `esp = ...` thành IP của ESP32, rồi thêm một token truy cập:
+
+```bash
+cp har/har_demo.example.toml har_demo.toml
+nano har_demo.toml                                   # sửa dòng esp = "..."
+echo "token = \"$(.venv-har/bin/python -m har new-token)\"" >> har_demo.toml
+chmod 600 har_demo.toml
+```
+
+`har_demo.toml` chứa token nên không được đưa lên Git (đã có trong `.gitignore`). Trang web bắt
+buộc có token khi mở cho cả mạng (`host = "0.0.0.0"`); chỉ khi `host = "127.0.0.1"` mới được bỏ.
+
+**Tùy chọn — chạy demo như một dịch vụ tự khởi động cùng Pi4.** Script `deploy/install_pi.sh` chép
+mã, mô hình và dữ liệu vào `/opt/har`, tạo `/etc/har/har_demo.toml` kèm token, rồi cài dịch vụ
+systemd `har-demo`:
+
+```bash
+bash deploy/install_pi.sh
+sudo nano /etc/har/har_demo.toml          # sửa esp = "..." rồi:
+sudo systemctl restart har-demo
+journalctl -u har-demo -f                 # xem log
+```
+
+Script và dịch vụ **chưa được chạy thử trên Pi4 thật**; nếu gặp lỗi, dùng cách chạy tay ở bước 3.
+
 ### 3. Mỗi lần sử dụng
 
 1. **Hiệu chỉnh:** đặt cảm biến nằm yên trên bàn, cấp nguồn ESP32 (USB hoặc pin dự phòng 5 V)
@@ -110,25 +137,31 @@ Repo đã kèm mô hình `har_runs/own_rf_01` và dữ liệu `data/har_own` nê
    và tự thử lại sau 3 giây.
 2. **Đeo cảm biến** đúng như lúc thu dữ liệu huấn luyện: hông phải ở thắt lưng, mặt chip MPU6050
    hướng ra ngoài, cổng USB của ESP32 chúc xuống. Đeo khác hướng thì mô hình dễ nhận sai.
-3. Trên Pi4 (qua SSH), chọn **một** trong hai cách xem kết quả dưới đây, thay `192.168.1.2` bằng IP ESP32.
+3. Trên Pi4 (qua SSH), chọn **một** trong hai cách xem kết quả dưới đây. IP ESP32 lấy từ
+   `har_demo.toml`; muốn đổi tạm thì thêm `--esp <IP>:8765` vào lệnh.
 
 **Cách A — xem trên trang web**
 
 ```bash
 cd ~/har-baseline
-.venv-har/bin/python -m har demo --run-dir har_runs/own_rf_01 --esp 192.168.1.2:8765 --data-dir data/har_own
+.venv-har/bin/python -m har demo --config har_demo.toml
 ```
 
-Mở `http://<IP-Pi4>:8080` trên điện thoại hoặc laptop. Trang mở sẵn chế độ **Trực tiếp**, hiển thị
+Mở `http://<IP-Pi4>:8080/?token=<token>` trên điện thoại hoặc laptop (token nằm trong
+`har_demo.toml`). Trình duyệt nhớ token, các lần sau chỉ cần `http://<IP-Pi4>:8080`. Không có token
+thì trang trả lỗi 401. Trang mở sẵn chế độ **Trực tiếp**, hiển thị
 hoạt động hiện tại (đi bộ/ngồi/đứng/nằm), độ tin cậy và tốc độ nhận mẫu; kết quả mới khoảng mỗi
 1,28 giây. Nút **Phát lại** chạy lại các phiên đã thu trong `data/har_own` (ngắt kết nối ESP32);
 bấm **Trực tiếp** để quay lại. Dừng bằng Ctrl+C trong SSH.
+
+Kiểm tra nhanh từ chính Pi4: `curl -H "Authorization: Bearer <token>" http://127.0.0.1:8080/health`
+trả mã 200 khi đang nhận dữ liệu hoặc đang phát lại, 503 khi chưa có dữ liệu hoặc dữ liệu bị trễ.
 
 **Cách B — xem trên terminal**
 
 ```bash
 cd ~/har-baseline
-.venv-har/bin/python -m har live --run-dir har_runs/own_rf_01 --esp 192.168.1.2:8765
+.venv-har/bin/python -m har live --config har_demo.toml
 ```
 
 Mỗi kết luận in một dòng, ví dụ:
@@ -143,7 +176,9 @@ Cột phần trăm là xác suất trung bình 3 cửa sổ gần nhất; dướ
 Dừng bằng Ctrl+C.
 
 Cả hai lệnh cũng chạy được trên laptop (Windows: thay `.venv-har/bin/python` bằng
-`.\.venv-har\Scripts\python.exe`) nếu laptop cùng mạng với ESP32.
+`.\.venv-har\Scripts\python.exe`) nếu laptop cùng mạng với ESP32. Không dùng file cấu hình thì
+truyền thẳng tham số, ví dụ
+`har live --run-dir har_runs/own_rf_01 --esp 192.168.1.2:8765`.
 
 ### Xử lý sự cố
 
@@ -154,6 +189,8 @@ Cả hai lệnh cũng chạy được trên laptop (Windows: thay `.venv-har/bin
 | `ESP32 đang bận …` | ESP32 chỉ nhận một kết nối. Tắt `collector`, `demo` hoặc `live` khác đang chạy; ngay sau khi rớt Wi-Fi có thể phải chờ vài giây. |
 | `Mất kết nối — đang thử lại` | 5 giây không nhận dữ liệu (mất Wi-Fi, hết pin). Chương trình tự kết nối lại. |
 | `ESP32 vừa khởi động lại` | ESP32 reset và đã hiệu chỉnh lại; nếu nó reset khi đang đeo, xem dòng hiệu chỉnh ở trên. |
+| `đặt token trong har_demo.toml …` | `har demo` từ chối mở cho cả mạng khi chưa có token. Thêm token như ở bước 2, hoặc đặt `host = "127.0.0.1"` nếu chỉ xem trên chính máy đó. |
+| Trang báo `token required` (401) | Mở lại bằng `http://<IP-Pi4>:8080/?token=<token>`. |
 
 Các phần dưới đây mô tả từng bước của dự án theo thứ tự thực hiện.
 

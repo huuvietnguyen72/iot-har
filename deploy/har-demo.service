@@ -1,0 +1,17 @@
+[Unit]
+Description=HAR demo: nhận diện đi bộ/ngồi/đứng/nằm từ ESP32
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/opt/har
+ExecStart=/opt/har/.venv/bin/python -m har demo --config /etc/har/har_demo.toml
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
