@@ -4,21 +4,25 @@
 #include <esp_timer.h>
 #include <stdint.h>
 #include <string.h>
+#include "bmp280.h"
 #include "data_stream.h"
 #include "gyro_calibration.h"
+#include "net_protocol.h"
+#include "pins.h"
+#include "ui.h"
+#include "wearable_protocol.h"
 
 #if WIFI_STREAMING
 #include <WiFi.h>
 #include <ESPmDNS.h>
-#include "net_protocol.h"
 #if __has_include("wifi_secrets.h")
 #include "wifi_secrets.h"
 #endif
 #endif
 
 namespace {
-constexpr int kSdaPin = 21;
-constexpr int kSclPin = 22;
+constexpr int kSdaPin = pins::kSda;
+constexpr int kSclPin = pins::kScl;
 constexpr uint32_t kSampleIntervalMs = 20;
 constexpr uint32_t kRetryIntervalMs = 3000;
 constexpr uint32_t kWarmupMs = 2000;
@@ -28,6 +32,21 @@ constexpr uint8_t kWhoAmI = 0x75;
 constexpr uint8_t kDataStart = 0x3B;
 constexpr uint8_t kPowerManagement = 0x6B;
 constexpr uint8_t kInterruptStatus = 0x3A;
+
+// BMP280 on the same bus: one reading after every 5th DATA sample (10 Hz).
+constexpr uint32_t kBaroEverySamples = 5;
+constexpr uint32_t kBaroRetryMs = 10000;
+constexpr uint8_t kBaroMaxFailures = 10;
+constexpr uint8_t kBaroChipIdRegister = 0xD0;
+constexpr uint8_t kBaroCalibrationStart = 0x88;
+constexpr uint8_t kBaroCtrlMeas = 0xF4;
+constexpr uint8_t kBaroConfig = 0xF5;
+constexpr uint8_t kBaroDataStart = 0xF7;
+constexpr uint8_t kBaroConfigFilter16 = 0x10;   // standby 0.5 ms, IIR x16
+constexpr uint8_t kBaroCtrlNormalT2P16 = 0x57;  // temperature x2, pressure x16, normal mode
+constexpr int32_t kBaroRawNotReady = 0x80000;   // data register value before the first conversion
+constexpr double kBaroMinPa = 30000.0;
+constexpr double kBaroMaxPa = 110000.0;
 
 uint8_t sensorAddress = 0;
 bool sensorReady = false;
@@ -41,6 +60,16 @@ GyroCalibration gyroCalibration;
 EmitSchedule sampleSchedule(kSampleIntervalMs);
 char streamIdHex[17] = {};
 uint32_t sampleSeq = 0;
+
+uint8_t baroAddress = 0;
+bool baroReady = false;
+uint8_t baroFailures = 0;
+uint32_t lastBaroAttemptMs = 0;
+Bmp280Calibration baroCalibration;
+
+// Guards streamIdHex, the Wi-Fi queue and whole-line writes to Serial.
+SemaphoreHandle_t recordMutex = nullptr;
+LineBuffer serialCommands;
 
 #if WIFI_STREAMING
 constexpr uint16_t kTcpPort = 8765;
@@ -67,7 +96,6 @@ const WifiProfile kProfiles[] = {
 };
 
 RecordQueue wifiQueue;
-SemaphoreHandle_t queueMutex = nullptr;
 #endif
 
 enum class CalibrationResult { Success, Unstable, ReadError };
@@ -149,6 +177,63 @@ bool readFreshFrame(uint8_t *frame) {
   }
   Serial.println("[ERROR] No fresh MPU6050 sample within 1 s.");
   return false;
+}
+
+// I2C helpers for the optional barometer: no logging, a missing BMP280 is normal.
+bool quietRead(uint8_t address, uint8_t reg, uint8_t *data, size_t length) {
+  Wire.beginTransmission(address);
+  Wire.write(reg);
+  if (Wire.endTransmission(false) != 0 ||
+      Wire.requestFrom(address, length, true) != length) {
+    while (Wire.available()) Wire.read();
+    return false;
+  }
+  for (size_t i = 0; i < length; ++i) data[i] = static_cast<uint8_t>(Wire.read());
+  return true;
+}
+
+bool quietWrite(uint8_t address, uint8_t reg, uint8_t value) {
+  Wire.beginTransmission(address);
+  Wire.write(reg);
+  Wire.write(value);
+  return Wire.endTransmission() == 0;
+}
+
+bool initializeBaro() {
+  lastBaroAttemptMs = millis();
+  baroReady = false;
+  baroFailures = 0;
+  baroAddress = 0;
+  for (uint8_t address = 0x76; address <= 0x77; ++address) {
+    uint8_t id = 0;
+    if (quietRead(address, kBaroChipIdRegister, &id, 1) &&
+        (id == kBmp280ChipId || id == kBme280ChipId)) {
+      baroAddress = address;
+      break;
+    }
+  }
+  uint8_t raw[kBmp280CalibrationBytes];
+  if (baroAddress != 0 && quietRead(baroAddress, kBaroCalibrationStart, raw, sizeof(raw))) {
+    baroCalibration = parseBmp280Calibration(raw);
+    // The config register is only reliably writable in sleep mode.
+    baroReady = quietWrite(baroAddress, kBaroCtrlMeas, 0x00) &&
+                quietWrite(baroAddress, kBaroConfig, kBaroConfigFilter16) &&
+                quietWrite(baroAddress, kBaroCtrlMeas, kBaroCtrlNormalT2P16);
+  }
+  // Report changes only: without a BMP280 this runs every 10 s.
+  static bool reported = false;
+  static bool reportedReady = false;
+  if (!reported || reportedReady != baroReady) {
+    reported = true;
+    reportedReady = baroReady;
+    if (baroReady) {
+      Serial.printf("[BARO] BMP280 at 0x%02X; BARO records at 10 Hz.\n", baroAddress);
+    } else {
+      Serial.println("[BARO] no BMP280 at 0x76/0x77; streaming without pressure.");
+    }
+  }
+  uiSetBaroOk(baroReady);
+  return baroReady;
 }
 
 bool initializeSensor() {
@@ -245,17 +330,15 @@ CalibrationResult calibrateGyro() {
   gyroCalibrated = true;
   const uint64_t streamIdValue =
       (static_cast<uint64_t>(esp_random()) << 32) | static_cast<uint64_t>(esp_random());
+  xSemaphoreTake(recordMutex, portMAX_DELAY);
   formatStreamId(streamIdHex, sizeof(streamIdHex), streamIdValue);
   sampleSeq = 0;
-  sampleSchedule.start(millis());
 #if WIFI_STREAMING
-  if (queueMutex != nullptr) {
-    xSemaphoreTake(queueMutex, portMAX_DELAY);
-    wifiQueue.clear();
-    wifiQueue.resetCounters();
-    xSemaphoreGive(queueMutex);
-  }
+  wifiQueue.clear();
+  wifiQueue.resetCounters();
 #endif
+  xSemaphoreGive(recordMutex);
+  sampleSchedule.start(millis());
   Serial.printf("[CAL] DONE bias=(%.3f,%.3f,%.3f) dps\n",
                 gyroCalibration.biasDps(0), gyroCalibration.biasDps(1),
                 gyroCalibration.biasDps(2));
@@ -264,25 +347,72 @@ CalibrationResult calibrateGyro() {
 }
 
 void attemptCalibration() {
+  uiSetSensorState(SensorState::Calibrating);
   const CalibrationResult result = calibrateGyro();
   lastCalibrationAttemptMs = millis();
-  if (result == CalibrationResult::ReadError) {
+  if (result == CalibrationResult::Success) {
+    uiSetSensorState(SensorState::Streaming);
+  } else if (result == CalibrationResult::ReadError) {
     ++failedReads;
     sensorReady = false;
     gyroCalibrated = false;
     lastAttemptMs = millis();
+    uiSetSensorState(SensorState::Error);
     Serial.println("[ERROR] Calibration read failed; reinitializing in 3 seconds.");
   }
 }
 
-void publishRecord(const char *line) {
+// Call with recordMutex held.
+void publishRecordLocked(const char *line) {
 #if WIFI_STREAMING
-  xSemaphoreTake(queueMutex, portMAX_DELAY);
   wifiQueue.push(line, strlen(line));
-  xSemaphoreGive(queueMutex);
 #else
   Serial.println(line);
 #endif
+}
+
+void publishRecord(const char *line) {
+  xSemaphoreTake(recordMutex, portMAX_DELAY);
+  publishRecordLocked(line);
+  xSemaphoreGive(recordMutex);
+}
+
+void emitBaro(uint32_t seq) {
+  uint8_t data[kBmp280DataBytes];
+  bool ok = quietRead(baroAddress, kBaroDataStart, data, sizeof(data));
+  const uint64_t timeUs = static_cast<uint64_t>(esp_timer_get_time());
+  if (ok) {
+    const int32_t rawPressure = bmp280RawPressure(data);
+    if (rawPressure == kBaroRawNotReady) return;  // first conversion still running
+    const int32_t tFine = bmp280TFine(baroCalibration, bmp280RawTemperature(data));
+    const double pressurePa = bmp280PressureQ24_8(baroCalibration, rawPressure, tFine) / 256.0;
+    ok = pressurePa >= kBaroMinPa && pressurePa <= kBaroMaxPa;
+    if (ok) {
+      char line[kNetRecordMax];
+      formatBaroRecord(line, sizeof(line), streamIdHex, seq, timeUs, pressurePa,
+                       bmp280CentiCelsius(tFine) / 100.0);
+      publishRecord(line);
+      baroFailures = 0;
+      return;
+    }
+  }
+  // The barometer is optional: it must never stop the DATA stream.
+  if (++baroFailures >= kBaroMaxFailures) {
+    baroReady = false;
+    lastBaroAttemptMs = millis();
+    uiSetBaroOk(false);
+    Serial.println("[BARO] too many bad readings; retrying in 10 s.");
+  }
+}
+
+void handleCommandLine(const char *line) {
+  Command command;
+  if (!parseCommand(line, &command)) return;
+  if (command.type == Command::Type::Activity) {
+    uiSetActivity(command.label);
+  } else if (command.type == Command::Type::Alert) {
+    uiSetAlert(command.on);
+  }
 }
 
 bool emitSample() {
@@ -308,9 +438,10 @@ bool emitSample() {
   sample.gz = static_cast<float>(gyroCalibration.correctedDps(gzRaw, 2));
   sample.temp_c = temperatureRaw / 340.0f + 36.53f;
 
-  char line[160];
+  char line[kNetRecordMax];
   formatDataRecord(line, sizeof(line), streamIdHex, sample);
   publishRecord(line);
+  if (baroReady && sampleSeq % kBaroEverySamples == 0) emitBaro(sampleSeq);
   ++sampleSeq;
   ++goodReads;
   return true;
@@ -358,11 +489,9 @@ void sendBytes(WiFiClient &client, const char *data, size_t len) {
 
 void sendNet(WiFiClient &client) {
   char net[kNetRecordMax];
-  NetCounters counters;
-  xSemaphoreTake(queueMutex, portMAX_DELAY);
-  counters = wifiQueue.counters();
-  xSemaphoreGive(queueMutex);
-  formatNetLine(net, sizeof(net), streamIdHex, counters);
+  xSemaphoreTake(recordMutex, portMAX_DELAY);
+  formatNetLine(net, sizeof(net), streamIdHex, wifiQueue.counters());
+  xSemaphoreGive(recordMutex);
   sendBytes(client, net, strlen(net));
   sendBytes(client, "\n", 1);
 }
@@ -374,12 +503,14 @@ void networkTask(void *) {
   MDNS.begin(kHostname);
   MDNS.addService("mpu6050", "tcp", kTcpPort);
   WiFiClient client;
+  LineBuffer commands;
   char record[kNetRecordMax];
   char line[kNetRecordMax + 2];
   uint32_t lastNetMs = 0;
   for (;;) {
     if (WiFi.status() != WL_CONNECTED) {
       if (client) client.stop();
+      uiSetLinkState(LinkState::WifiDown);
       delay(kReconnectDelayMs);
       connectWifi();
       continue;
@@ -392,10 +523,11 @@ void networkTask(void *) {
       } else {
         if (client) client.stop();
         client = incoming;
-        xSemaphoreTake(queueMutex, portMAX_DELAY);
+        commands = LineBuffer();
+        xSemaphoreTake(recordMutex, portMAX_DELAY);
         wifiQueue.clear();
         wifiQueue.resetCounters();
-        xSemaphoreGive(queueMutex);
+        xSemaphoreGive(recordMutex);
         Serial.printf("[NET] client connected from %s\n",
                       client.remoteIP().toString().c_str());
         sendNet(client);
@@ -404,21 +536,29 @@ void networkTask(void *) {
     }
     if (!client || !client.connected()) {
       if (client) client.stop();
-      xSemaphoreTake(queueMutex, portMAX_DELAY);
+      uiSetLinkState(LinkState::WifiNoClient);
+      xSemaphoreTake(recordMutex, portMAX_DELAY);
       size_t drained = 0;
       while (wifiQueue.pop(record, sizeof(record))) {
         wifiQueue.count_unobserved(1);
         if (++drained >= 50) break;
       }
-      xSemaphoreGive(queueMutex);
+      xSemaphoreGive(recordMutex);
       delay(10);
       continue;
     }
+    uiSetLinkState(LinkState::ClientConnected);
+    // Commands from the Pi (CMD,1,...), a bounded number of bytes per pass.
+    for (int budget = 256; budget > 0 && client.available() > 0; --budget) {
+      const int c = client.read();
+      if (c < 0) break;
+      if (commands.push(static_cast<char>(c))) handleCommandLine(commands.line());
+    }
     int sent = 0;
     while (sent < 50) {
-      xSemaphoreTake(queueMutex, portMAX_DELAY);
+      xSemaphoreTake(recordMutex, portMAX_DELAY);
       const bool have = wifiQueue.pop(record, sizeof(record));
-      xSemaphoreGive(queueMutex);
+      xSemaphoreGive(recordMutex);
       if (!have) break;
       size_t len = strlen(record);
       if (len > sizeof(line) - 2) len = sizeof(line) - 2;
@@ -439,6 +579,24 @@ void networkTask(void *) {
 #endif
 } // namespace
 
+void publishEvent(const char *name, long value) {
+  char line[kNetRecordMax];
+  const uint64_t timeUs = static_cast<uint64_t>(esp_timer_get_time());
+  xSemaphoreTake(recordMutex, portMAX_DELAY);
+  formatEventRecord(line, sizeof(line), streamIdHex, timeUs, name, value);
+  publishRecordLocked(line);
+  xSemaphoreGive(recordMutex);
+}
+
+void publishStatus(int vbat_mv, int percent, int rssi_dbm, unsigned flags) {
+  char line[kNetRecordMax];
+  const uint64_t timeUs = static_cast<uint64_t>(esp_timer_get_time());
+  xSemaphoreTake(recordMutex, portMAX_DELAY);
+  formatStatusRecord(line, sizeof(line), streamIdHex, timeUs, vbat_mv, percent, rssi_dbm, flags);
+  publishRecordLocked(line);
+  xSemaphoreGive(recordMutex);
+}
+
 void setup() {
   Serial.begin(115200);
   delay(1000);
@@ -448,23 +606,38 @@ void setup() {
   Serial.println("\n=== ESP32 MPU6050 USB streaming ===");
 #endif
   Serial.println("Wiring: VCC=3V3 GND=GND SDA=21 SCL=22 AD0=GND");
+  Serial.println("Wearable: LED green=26 red=27 button=32 buzzer=25 motor=33 battery=34 "
+                 "OLED SDA=19 SCL=18");
+  recordMutex = xSemaphoreCreateMutex();
+  uiBegin();
 #if WIFI_STREAMING
-  queueMutex = xSemaphoreCreateMutex();
   xTaskCreatePinnedToCore(networkTask, "net", 8192, nullptr, 1, nullptr, 0);
 #endif
   busReady = Wire.begin(kSdaPin, kSclPin, 100000);
   Wire.setTimeOut(50);
   if (!busReady) {
     Serial.println("[ERROR] Cannot initialize ESP32 I2C bus.");
+    uiSetSensorState(SensorState::Error);
   } else {
     sensorReady = initializeSensor();
-    if (sensorReady) attemptCalibration();
+    if (sensorReady) {
+      initializeBaro();
+      attemptCalibration();
+    } else {
+      uiSetSensorState(SensorState::Error);
+    }
   }
   lastAttemptMs = millis();
 }
 
 void loop() {
   const uint32_t now = millis();
+  // The same CMD,1,... lines the Pi sends over TCP also work from the serial monitor.
+  while (Serial.available() > 0) {
+    if (serialCommands.push(static_cast<char>(Serial.read()))) {
+      handleCommandLine(serialCommands.line());
+    }
+  }
   if (!sensorReady) {
     if (now - lastAttemptMs >= kRetryIntervalMs) {
       if (!busReady) {
@@ -474,6 +647,7 @@ void loop() {
       sensorReady = busReady && initializeSensor();
       lastAttemptMs = millis();
       if (sensorReady) {
+        initializeBaro();
         attemptCalibration();
       } else {
         Serial.println("[RETRY] Initialization failed; retrying in 3 s.");
@@ -490,11 +664,13 @@ void loop() {
   if (sampleSchedule.due(now)) {
     if (emitSample()) {
       sampleSchedule.onEmit(now);
+      if (!baroReady && now - lastBaroAttemptMs >= kBaroRetryMs) initializeBaro();
     } else {
       ++failedReads;
       sensorReady = false;
       gyroCalibrated = false;
       lastAttemptMs = millis();
+      uiSetSensorState(SensorState::Error);
       Serial.printf("[ERROR] Sample rejected. successful=%lu errors=%lu; retrying in 3 s.\n",
                     static_cast<unsigned long>(goodReads),
                     static_cast<unsigned long>(failedReads));

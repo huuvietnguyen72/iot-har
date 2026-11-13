@@ -258,6 +258,76 @@ python3 -m collector --discover --duration 60 --label test --output data   # c�
 - Nghiệm thu thực tế: ở cả mạng nhà và hotspot iPhone, phiên 60 s đạt 50 Hz, không mất mẫu;
   ESP32 tự chuyển sang hotspot khi mạng nhà mất.
 
+## Firmware bộ đeo — nút, LED, còi, pin, OLED, BMP280
+
+Cả hai bản firmware (`esp32dev` qua USB và `esp32dev_wifi`) có thêm các phần dưới đây. Phần nào
+không gắn thì firmware tự bỏ qua: chỉ có ESP32 + MPU6050 vẫn chạy như trước, dòng `DATA,1` và
+`[NET],1` không đổi.
+
+| Phần | Chân | Hoạt động |
+|---|---|---|
+| MPU6050, BMP280 | SDA 21, SCL 22 | BMP280 (0x76/0x77) được đọc ngay sau mỗi mẫu `DATA` thứ 5, tức 10 lần/giây |
+| OLED 0,96" 128×64 | SDA 19, SCL 18 | Bus I2C riêng để việc vẽ không làm trễ mẫu 50 Hz. Địa chỉ 0x3C hoặc 0x3D |
+| LED xanh, LED đỏ | 26, 27 | Xem bảng đèn bên dưới |
+| Nút nhấn | 32 → GND | Nhấn: bật màn hình 10 giây, hủy cảnh báo. Giữ 2 giây: gửi SOS |
+| Còi, motor rung | 25, 33 | Qua transistor S8050. Kêu khi có cảnh báo, bíp ngắn khi nhấn nút |
+| Đo pin | 34 | Cầu chia 100 kΩ + 100 kΩ. Ngoài khoảng 2,5–4,5 V thì coi như không có pin |
+
+Đèn báo:
+
+| Đèn | Nghĩa |
+|---|---|
+| Xanh nháy nhanh | Đang hiệu chỉnh gyro, giữ yên thiết bị |
+| Xanh nháy chậm | Có Wi-Fi, Pi4 chưa kết nối |
+| Xanh chớp ngắn mỗi 2 giây | Đang gửi dữ liệu |
+| Đỏ sáng liên tục | Lỗi cảm biến MPU6050 |
+| Đỏ nháy chậm | Mất Wi-Fi |
+| Đỏ chớp đôi mỗi 3 giây | Pin yếu (từ 15% trở xuống) |
+| Đỏ nháy nhanh, còi kêu | Cảnh báo té. Còi tự im sau 60 giây, đèn nháy đến khi hủy |
+
+Màn hình tắt khi không dùng và bật lại khi nhấn nút, khi có cảnh báo, hoặc khi cảm biến chưa
+sẵn sàng. Dòng to là hoạt động Pi4 gửi về (hoặc trạng thái thiết bị); ba dòng nhỏ là pin, Wi-Fi
+và trạng thái kết nối với Pi4. Chữ trên màn hình là tiếng Việt không dấu. Phần trăm pin chỉ là
+ước lượng từ điện áp.
+
+Tùy chọn khi build, thêm vào `build_flags` trong `platformio.ini`:
+
+- `-D OLED_SH1106=1`: màn hình dùng chip SH1106 thay vì SSD1306. Nếu hình bị lệch 2 điểm ảnh
+  sang một bên hoặc có sọc nhiễu ở mép, hãy thử cờ này.
+- `-D BUZZER_PASSIVE=1`: còi thụ động, cần xung 2,7 kHz. Dùng khi trong `hw_test` chỉ phím `t`
+  làm còi kêu.
+
+### Dòng mới trong giao thức
+
+Bộ thu và trang demo hiện tại bỏ qua mọi dòng không bắt đầu bằng `DATA` hoặc `[NET]`, nên các
+dòng mới không ảnh hưởng dữ liệu đang thu.
+
+ESP32 gửi đi:
+
+```text
+BARO,1,<stream_id>,<seq>,<device_time_us>,<pressure_pa>,<temp_c>
+EVT,1,<stream_id>,<device_time_us>,<name>,<value>
+STAT,1,<stream_id>,<device_time_us>,<vbat_mv>,<percent>,<rssi_dbm>,<flags>
+```
+
+- `BARO`: `seq` là số thứ tự của mẫu `DATA` vừa đọc trước đó.
+- `EVT`: `name` là `button` (nhấn nút, `value` là số lần), `sos` (giữ nút 2 giây),
+  `alert_on` (đã bật cảnh báo), `alert_cancel` (người đeo nhấn nút hủy).
+- `STAT`: mỗi 10 giây. `vbat_mv = 0` và `percent = -1` nghĩa là không đo được pin.
+  `flags` là tổng của: 1 = BMP280 hoạt động, 2 = có OLED, 4 = đang cảnh báo, 8 = pin yếu.
+- `stream_id` để trống cho đến khi hiệu chỉnh gyro xong.
+
+Pi4 gửi về ESP32, mỗi lệnh một dòng (qua TCP 8765, hoặc gõ vào Serial Monitor để thử):
+
+```text
+CMD,1,ACT,<label>     hoạt động vừa nhận diện: walk, sit, stand, lie, ...
+CMD,1,ALERT,<0|1>     bật / tắt cảnh báo té
+```
+
+Nhãn hoạt động chỉ gồm chữ thường, số và dấu gạch dưới, tối đa 15 ký tự. Nếu quá 5 giây không
+có lệnh `ACT` mới, màn hình hiện `--`. Phía Pi4 chưa gửi các lệnh này; đây là phần việc tiếp theo
+trong `har/`.
+
 ## Bước 3A — Baseline nhận diện hoạt động (dữ liệu công khai)
 
 Package `har/` dựng pipeline nhận diện `walk/sit/stand/lie` bằng dữ liệu UCI HAR
@@ -290,10 +360,22 @@ $pio = "$env:USERPROFILE\.platformio\penv\Scripts\platformio.exe"
 & $pio run -e esp32dev_wifi
 ```
 
+Lần build đầu PlatformIO tự tải thư viện U8g2 (cần mạng).
+
+Chương trình thử phần cứng trên breadboard (`src/hw_test/`, tách khỏi firmware chính): quét I2C,
+đọc MPU6050 và BMP280, vẽ hình thử lên OLED, nháy LED, đọc nút, bật còi, đo áp pin. Nạp rồi mở
+Serial Monitor, gõ `h` để xem lệnh:
+
+```powershell
+& $pio run -e hw_test -t upload
+& $pio device monitor -e hw_test
+```
+
 Test C++ chạy trên máy tính (cần `g++`):
 
 ```bash
-for t in calibration data_stream net_protocol; do
+for t in calibration data_stream net_protocol bmp280 button battery indicator \
+         wearable_protocol display_view; do
   g++ -std=c++11 -Wall -Wextra -Werror test/${t}_test.cpp -o ${t}_test && ./${t}_test
 done
 ```
