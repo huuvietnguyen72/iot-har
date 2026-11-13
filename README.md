@@ -372,7 +372,7 @@ kết quả Pi4 gửi về.
    100 nF giữa VCC và GND sát BMP280.
 2. Nạp `hw_test` để kiểm tra (mục 3): phải có dòng `[CHECK] BMP280 PASS`. Đặt yên rồi nâng bộ đeo
    lên khoảng 1 m: giá trị `p=` phải giảm khoảng 12 Pa.
-3. Nạp lại `esp32dev_wifi`. Log có dòng `[BARO] BMP280 at 0x76; BARO records at 10 Hz.`
+3. Nạp lại `esp32dev_wifi`. Log có dòng `[BARO] BMP280 at 0x76; BARO records at 10 Hz.` (hoặc 0x77).
 4. Đeo và đi cầu thang. Sau khoảng 5–8 giây đi liên tục, log hiện `[STAIRS] up` (hoặc `down`),
    OLED hiện `LEN THANG` (hoặc `XUONG THANG`). Đi tiếp trên mặt phẳng khoảng 2 giây thì log hiện
    `[STAIRS] ended`.
