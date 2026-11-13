@@ -4,14 +4,27 @@
 Raspberry Pi 4; Pi4 chạy mô hình **Random Forest** để nhận diện **đi bộ (walk), ngồi (sit),
 đứng (stand), nằm (lie)** gần thời gian thực (một kết luận mỗi 1,28 s) và hiển thị trên trang web.
 
+Firmware còn điều khiển phần cứng của bộ đeo: nút nhấn, hai LED, còi, đo pin, màn hình OLED và
+cảm biến áp suất BMP280. Pi4 gửi hoạt động vừa nhận diện về để hiện trên màn hình, và ESP32 tự
+bật cảnh báo khi nghi té. Các phần này là tùy chọn: chỉ có ESP32 + MPU6050 thì hệ thống vẫn chạy
+như trước. Chi tiết: mục [Firmware bộ đeo](#firmware-bộ-đeo--nút-led-còi-pin-oled-bmp280).
+
 ```text
-MPU6050 ──I2C──► ESP32 ── Wi-Fi TCP 8765 (DATA 50 Hz) ──► Raspberry Pi 4 ──► trình duyệt :8080
-                 (src/)                                    (collector/, har/)
+MPU6050 ─┐                 Wi-Fi TCP 8765
+BMP280 ──┴─I2C─► ESP32 ── DATA 50 Hz, BARO, EVT, STAT ──► Raspberry Pi 4 ──► trình duyệt :8080
+OLED ────I2C───►  │   ◄── CMD,1,ACT / CMD,1,ALERT ─────   (collector/, har/)
+nút, LED, còi, pin┘
+                 (src/)
 ```
+
+> **Trạng thái:** phần firmware bộ đeo (nút, LED, còi, pin, OLED, BMP280, phát hiện nghi té) đã
+> build và qua test trên máy tính, nhưng **chưa chạy trên mạch thật**. Luồng ESP32 + MPU6050 →
+> Pi4 → trang web là phần đã chạy và đã đo.
 
 | Thư mục | Chạy ở | Nội dung |
 | --- | --- | --- |
-| `src/`, `test/` | ESP32 | Firmware PlatformIO: đọc MPU6050, hiệu chỉnh gyro, phát qua USB/Wi-Fi; test C++ chạy trên máy tính |
+| `src/`, `test/` | ESP32 | Firmware PlatformIO: đọc MPU6050 và BMP280, hiệu chỉnh gyro, phát qua USB/Wi-Fi, nút/LED/còi/pin/OLED, phát hiện nghi té; test C++ chạy trên máy tính |
+| `src/hw_test/` | ESP32 | Chương trình thử từng phần cứng trên breadboard trước khi hàn |
 | `collector/` | Pi4 | Thu một phiên có nhãn ra CSV + JSON, thống kê chất lượng truyền |
 | `har/` | Laptop, Pi4 | Cắt cửa sổ, trích 70 đặc trưng, huấn luyện/đánh giá Random Forest, demo trực tiếp/phát lại |
 | `data/har_own/` | — | Dữ liệu tự thu: 17 phiên train + 8 phiên test, 120 s/phiên |
@@ -28,7 +41,8 @@ MPU6050 ──I2C──► ESP32 ── Wi-Fi TCP 8765 (DATA 50 Hz) ──► Ra
 Suy luận một cửa sổ trên Pi4: p95 khoảng 41 ms (ngưỡng 1,28 s). Chi tiết theo lớp và
 confusion matrix: [`har_runs/own_rf_01/report.md`](har_runs/own_rf_01/report.md).
 
-Giới hạn: dữ liệu của **một người**, cùng một cách đeo; chưa có lớp lên/xuống cầu thang.
+Giới hạn: dữ liệu của **một người**, cùng một cách đeo; chưa có lớp lên/xuống cầu thang. Phát
+hiện nghi té trên ESP32 dùng ngưỡng khởi đầu, chưa được kiểm chứng trên dữ liệu té.
 
 ## Chạy thử nhanh không cần phần cứng
 
@@ -47,6 +61,8 @@ py -3.13 -m venv .venv-har
 
 Cần: ESP32 + MPU6050 đã nối dây (VCC=3V3, GND=GND, SDA=GPIO21, SCL=GPIO22, AD0=GND),
 Raspberry Pi 4 và ESP32 **cùng một mạng Wi-Fi 2.4 GHz**, điện thoại/laptop cùng mạng để xem web.
+Nút, LED, còi, OLED, BMP280 và mạch đo pin là tùy chọn; chân nối ở mục
+[Firmware bộ đeo](#firmware-bộ-đeo--nút-led-còi-pin-oled-bmp280).
 
 ### 1. Nạp firmware Wi-Fi (một lần, trên laptop)
 
@@ -67,6 +83,9 @@ Raspberry Pi 4 và ESP32 **cùng một mạng Wi-Fi 2.4 GHz**, điện thoại/l
    [CAL] DONE bias=(...) dps
    [WIFI] connected ssid=<tên mạng> ip=192.168.1.2      ← IP của ESP32, ghi lại
    ```
+
+   Nếu có gắn OLED, địa chỉ IP cũng hiện trên màn hình khi Pi4 chưa kết nối. Dòng
+   `[BARO] no BMP280 ...` và `[UI] no OLED ...` chỉ báo là không gắn hai phần đó.
 
    IP do router cấp nên có thể đổi; khi cần, xem lại log này hoặc danh sách thiết bị trên router
    (ESP32 có tên mạng `mpu6050-esp32`).
@@ -147,6 +166,8 @@ Gói Python `collector` (chạy trên Raspberry Pi 4, Debian 12, Python 3.11) l�
 ### Phần cứng và nạp firmware
 
 - MPU6050: VCC=3V3, GND=GND, SDA=GPIO21, SCL=GPIO22, AD0=GND (địa chỉ 0x68).
+- Các phần khác của bộ đeo (tùy chọn): xem bảng chân ở mục
+  [Firmware bộ đeo](#firmware-bộ-đeo--nút-led-còi-pin-oled-bmp280).
 - Build/Upload bằng PlatformIO. Đặt thư mục dự án ở **đường dẫn không dấu**: toolchain ESP32
   lỗi khi tạo file tạm trong đường dẫn có dấu tiếng Việt. Nếu không đổi được chỗ, thêm vào
   đầu `platformio.ini` một thư mục build không dấu, ví dụ:
@@ -169,8 +190,10 @@ DATA,1,7a31b25c809fd416,12,8340000,-0.921,0.051,0.132,0.120,-0.080,0.050,29.40
 - `stream_id`: 16 ký tự hex, đổi mới sau mỗi lần hiệu chỉnh thành công; `seq` bắt đầu lại từ 0.
 - `device_time_us`: microsecond đơn điệu của ESP32.
 - `gx/gy/gz`: đã trừ bias gyro; gia tốc còn trọng lực, chưa hiệu chỉnh sai lệch.
-- Các dòng `[SCAN]`, `[CAL]`, `[ID]`, `[READY]`, `[TEST]`, `[RETRY]`, `[ERROR]` là thông báo,
-  không phải bản ghi dữ liệu.
+- Các dòng `[SCAN]`, `[CAL]`, `[ID]`, `[READY]`, `[TEST]`, `[RETRY]`, `[ERROR]`, `[BARO]`,
+  `[UI]`, `[FALL]` là thông báo, không phải bản ghi dữ liệu.
+- Firmware bộ đeo gửi thêm các dòng `BARO`, `EVT`, `STAT` và nhận lệnh `CMD`; xem
+  [Dòng mới trong giao thức](#dòng-mới-trong-giao-thức). Bộ thu bỏ qua các dòng này.
 
 ### Cài đặt bộ thu trên Pi4
 

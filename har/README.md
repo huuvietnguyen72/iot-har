@@ -98,6 +98,10 @@ python -m har demo --run-dir har_runs/own_rf_01 --esp 127.0.0.1:8765 --data-dir 
 - Cửa sổ cắt giống `collector_csv` (128/64, gyro → rad/s, cắt khi mất mẫu hoặc trống > 40 ms);
   trạng thái hiển thị là trung bình xác suất 3 cửa sổ; dưới 60% ghi "không chắc".
 - `--esp` nên là địa chỉ IP (tên máy có thể làm việc dừng/đổi chế độ chậm hơn).
+- Ở chế độ trực tiếp (`demo` và `live`), mỗi giây Pi4 gửi về ESP32 dòng `CMD,1,ACT,<nhãn>` với
+  kết quả mới nhất, để bộ đeo hiện hoạt động trên màn hình OLED. Không gửi khi đang phát lại,
+  khi mất dữ liệu quá 2 giây, hoặc khi chưa có cửa sổ nào được phân loại. Firmware cũ không có
+  phần bộ đeo sẽ bỏ qua dòng này.
 - ESP32 chỉ nhận một kết nối: tắt collector trước khi chạy demo trực tiếp (nếu không, trang báo
   "ESP32 đang bận"). Chuyển sang *Phát lại* sẽ ngắt kết nối ESP32. 5 s không nhận được dòng nào
   được coi là mất kết nối; demo tự kết nối lại (ngay sau khi rớt Wi-Fi có thể thấy "đang bận" vài
