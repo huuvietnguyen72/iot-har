@@ -85,7 +85,7 @@ def run_live(run_dir, host, port, *, out=None, max_predictions=None, source=None
     out = out or sys.stdout
     printer = TerminalPrinter(out)
     pipeline = LivePipeline(LivePredictor(run_dir), printer)
-    source = source or EspSource(host, port)
+    source = source or EspSource(host, port, feedback=pipeline.current_label)
     stop = threading.Event()
     thread = threading.Thread(target=source.run, args=(pipeline, stop), daemon=True)
     thread.start()

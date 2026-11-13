@@ -229,3 +229,67 @@ class EspSourceTests(unittest.TestCase):
         self.assertTrue(finished)
         self.assertEqual(sink.samples, [])
         self.assertEqual(set(sink.states()), {"connecting"})
+
+
+class WritableBurstTransport(BurstTransport):
+    """BurstTransport that also records what the source writes back."""
+
+    writes = []
+
+    def write(self, data):
+        type(self).writes.append(data)
+
+
+class EspSourceFeedbackTests(unittest.TestCase):
+    def setUp(self):
+        WritableBurstTransport.writes = []
+
+    def test_sends_activity_command_while_streaming(self):
+        source = EspSource("esp", 1, retry_s=0.05, transport_factory=WritableBurstTransport,
+                           feedback=lambda: "walk", feedback_every_s=0.0)
+        sink, finished = run_source(source, lambda s: len(WritableBurstTransport.writes) >= 3)
+        self.assertTrue(finished)
+        self.assertEqual(set(WritableBurstTransport.writes), {b"CMD,1,ACT,walk\n"})
+        self.assertGreaterEqual(len(sink.samples), 3)  # nothing is sent before DATA arrives
+
+    def test_feedback_is_rate_limited(self):
+        source = EspSource("esp", 1, retry_s=0.05, transport_factory=WritableBurstTransport,
+                           feedback=lambda: "sit", feedback_every_s=3600.0)
+        sink, finished = run_source(source, lambda s: len(s.samples) >= 300)
+        self.assertTrue(finished)
+        self.assertEqual(WritableBurstTransport.writes, [b"CMD,1,ACT,sit\n"])
+
+    def test_no_label_or_bad_label_sends_nothing(self):
+        for label in (None, "", "Walk", "two words", "a" * 16, 5):
+            WritableBurstTransport.writes = []
+            source = EspSource("esp", 1, retry_s=0.05, transport_factory=WritableBurstTransport,
+                               feedback=lambda label=label: label, feedback_every_s=0.0)
+            sink, finished = run_source(source, lambda s: len(s.samples) >= 30)
+            self.assertTrue(finished)
+            self.assertEqual(WritableBurstTransport.writes, [], label)
+
+    def test_without_feedback_the_transport_needs_no_write(self):
+        source = EspSource("esp", 1, retry_s=0.05, transport_factory=BurstTransport)
+        sink, finished = run_source(source, lambda s: len(s.samples) >= 30)
+        self.assertTrue(finished)
+        self.assertEqual(set(sink.states()), {"connecting", "streaming"})
+
+    def test_fake_esp32_accepts_commands_and_keeps_streaming(self):
+        with TemporaryDirectory() as tmp:
+            csv = write_own_session(Path(tmp), "s1", "walk", "2026-10-14T08:00:00Z",
+                                    seconds=3).with_suffix(".csv")
+            with FakeEsp32(csv, speed=20, loop=False) as fake:
+                source = EspSource(fake.host, fake.port, retry_s=0.05,
+                                   feedback=lambda: "stand", feedback_every_s=0.0)
+                sink, finished = run_source(source, lambda s: len(s.samples) >= 150)
+        self.assertTrue(finished)
+        self.assertNotIn("lost", sink.states())
+
+
+class ActivityCommandTests(unittest.TestCase):
+    def test_format_matches_the_firmware_parser(self):
+        from har.sources import activity_command
+        self.assertEqual(activity_command("stairs_down"), b"CMD,1,ACT,stairs_down\n")
+        self.assertEqual(activity_command("a" * 15), b"CMD,1,ACT," + b"a" * 15 + b"\n")
+        for bad in (None, "", "a" * 16, "Walk", "wa,lk", "walk\n", "đi"):
+            self.assertIsNone(activity_command(bad), bad)

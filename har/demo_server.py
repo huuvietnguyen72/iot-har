@@ -95,7 +95,8 @@ class DemoApp:
         self.broadcaster = Broadcaster()
         self.pipeline = LivePipeline(predictor, self.broadcaster.publish)
         self._data_dir = Path(data_dir)
-        self._live_factory = live_factory or (lambda: EspSource(esp_host, esp_port))
+        self._live_factory = live_factory or (
+            lambda: EspSource(esp_host, esp_port, feedback=self.pipeline.current_label))
         self._replay_factory = replay_factory or (lambda paths, speed: ReplaySource(paths, speed))
         self._mode_lock = threading.Lock()
         self._worker = None

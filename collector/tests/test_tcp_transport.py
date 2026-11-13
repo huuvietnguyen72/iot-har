@@ -96,5 +96,35 @@ class TcpTransportTests(unittest.TestCase):
             transport.read(16)
 
 
+    def test_write_reaches_the_peer(self):
+        received = []
+        done = threading.Event()
+
+        def handler(conn):
+            conn.settimeout(5)
+            data = b""
+            while not data.endswith(b"\n"):
+                chunk = conn.recv(64)
+                if not chunk:
+                    break
+                data += chunk
+            received.append(data)
+            done.set()
+
+        server = ServerThread(handler)
+        transport = TcpTransport("127.0.0.1", server.port)
+        transport.open()
+        transport.write(b"CMD,1,ACT,walk\n")
+        self.assertTrue(done.wait(5))
+        self.assertEqual(received, [b"CMD,1,ACT,walk\n"])
+        transport.close()
+        server.join()
+
+    def test_write_before_open_raises_connection_lost(self):
+        transport = TcpTransport("127.0.0.1", 1)
+        with self.assertRaises(ConnectionLost):
+            transport.write(b"x")
+
+
 if __name__ == "__main__":
     unittest.main()

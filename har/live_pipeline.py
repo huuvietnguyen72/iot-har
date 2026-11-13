@@ -101,6 +101,15 @@ class LivePipeline:
                 self._status["stale"] = stale
                 self._send_status()
 
+    def current_label(self):
+        """Label to show on the wearable, or None when there is no fresh live prediction."""
+        with self._lock:
+            status = self._status
+            if (status["mode"] != "live" or status["state"] != "streaming" or status["stale"]
+                    or status["collecting"] or self._latest is None):
+                return None
+            return self._latest["label"]
+
     def snapshot(self):
         with self._lock:
             return {"labels": list(self.labels), "status": self._public_status(),

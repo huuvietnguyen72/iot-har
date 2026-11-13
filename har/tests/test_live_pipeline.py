@@ -193,3 +193,37 @@ class LivePipelineTests(unittest.TestCase):
             self.assertEqual(len(predictions), len(batch["predictions"]))
             np.testing.assert_allclose([p["raw_probabilities"] for p in predictions],
                                        batch["probabilities"], rtol=0, atol=1e-12)
+
+
+class CurrentLabelTests(unittest.TestCase):
+    def test_none_until_a_live_prediction_exists(self):
+        pipeline, _, _, _ = make("sit")
+        pipeline.status(state="streaming")
+        self.assertIsNone(pipeline.current_label())
+        for s in samples(128):
+            pipeline.sample(s)
+        self.assertEqual(pipeline.current_label(), "sit")
+
+    def test_none_when_not_streaming_stale_or_collecting(self):
+        pipeline, _, _, clock = make("lie")
+        pipeline.status(state="streaming")
+        for s in samples(128):
+            pipeline.sample(s)
+        self.assertEqual(pipeline.current_label(), "lie")
+        clock.now += 5.0
+        pipeline.tick()  # no sample for 5 s: stale
+        self.assertIsNone(pipeline.current_label())
+        pipeline.sample(samples(1, start_seq=128)[0])
+        pipeline.tick()
+        self.assertEqual(pipeline.current_label(), "lie")
+        pipeline.sample(samples(1, start_seq=500)[0])  # gap: a new window is being collected
+        self.assertIsNone(pipeline.current_label())
+        pipeline.status(state="lost")
+        self.assertIsNone(pipeline.current_label())
+
+    def test_none_in_replay_mode(self):
+        pipeline, _, _, _ = make("walk", mode="replay")
+        pipeline.status(state="replaying")
+        for s in samples(128, session="s1", label="walk"):
+            pipeline.sample(s)
+        self.assertIsNone(pipeline.current_label())

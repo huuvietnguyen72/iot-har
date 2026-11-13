@@ -38,6 +38,15 @@ class TcpTransport:
             raise ConnectionLost("peer closed the connection")
         return data
 
+    def write(self, data):
+        """Send all of data; used for the short CMD lines that go back to the ESP32."""
+        if self._sock is None:
+            raise ConnectionLost("transport is not open")
+        try:
+            self._sock.sendall(data)
+        except OSError as exc:
+            raise ConnectionLost(str(exc)) from exc
+
     def close(self):
         if self._sock is not None:
             try:

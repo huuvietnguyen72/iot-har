@@ -325,8 +325,9 @@ CMD,1,ALERT,<0|1>     bật / tắt cảnh báo té
 ```
 
 Nhãn hoạt động chỉ gồm chữ thường, số và dấu gạch dưới, tối đa 15 ký tự. Nếu quá 5 giây không
-có lệnh `ACT` mới, màn hình hiện `--`. Phía Pi4 chưa gửi các lệnh này; đây là phần việc tiếp theo
-trong `har/`.
+có lệnh `ACT` mới, màn hình hiện `--`. `har live` và `har demo` (chế độ trực tiếp) gửi lệnh
+`ACT` mỗi giây khi đang có kết quả nhận diện. Lệnh `ALERT` chưa có nơi gửi vì chưa có mô hình
+phát hiện té; có thể gõ tay vào Serial Monitor để thử còi và đèn.
 
 ## Bước 3A — Baseline nhận diện hoạt động (dữ liệu công khai)
 

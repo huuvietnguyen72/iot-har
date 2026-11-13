@@ -2,6 +2,7 @@
 import csv
 import json
 from pathlib import Path
+import re
 import time
 
 from collector.line_reader import SerialLineReader
@@ -12,6 +13,15 @@ from .own_dataset import _metadata_problem, parse_utc
 from .stream_windows import StreamSample, read_csv_samples
 
 REPLAY_SPEEDS = (1, 2, 4)
+FEEDBACK_EVERY_S = 1.0  # the firmware forgets the activity after 5 s without a CMD,1,ACT line
+_FEEDBACK_LABEL_RE = re.compile(r"[a-z0-9_]{1,15}")
+
+
+def activity_command(label):
+    """The CMD,1,ACT line for a label, or None if the firmware would reject the label."""
+    if not isinstance(label, str) or not _FEEDBACK_LABEL_RE.fullmatch(label):
+        return None
+    return f"CMD,1,ACT,{label}\n".encode("ascii")
 SAMPLE_PERIOD_S = 0.02
 MAX_REPLAY_STEP_S = 1.0
 
@@ -135,10 +145,16 @@ class EspSource:
                    retrying (also while connected without DATA) and cleared (None) on
                    "calibrating" and "streaming".
       parse_errors running count of malformed DATA lines (sent alone, without state).
+
+    feedback, if given, is called about once a second while DATA is arriving and returns the
+    activity label to show on the wearable (or None); it is sent as "CMD,1,ACT,<label>".
     """
 
     def __init__(self, host, port, *, retry_s=3.0, idle_timeout_s=5.0, connect_timeout_s=3.0,
-                 transport_factory=TcpTransport, clock=time.monotonic):
+                 transport_factory=TcpTransport, clock=time.monotonic, feedback=None,
+                 feedback_every_s=FEEDBACK_EVERY_S):
+        self._feedback = feedback
+        self._feedback_every_s = feedback_every_s
         self._host = host
         self._port = int(port)
         self._retry_s = retry_s
@@ -186,10 +202,18 @@ class EspSource:
         reader = SerialLineReader(transport)
         got_line = got_data = calibrating = False
         last_line = self._clock()
+        last_feedback = None
         try:
             while not stop.is_set():
                 lines = reader.poll()  # blocks up to the transport read timeout (50 ms)
                 now = self._clock()
+                if (self._feedback is not None and got_data
+                        and (last_feedback is None
+                             or now - last_feedback >= self._feedback_every_s)):
+                    last_feedback = now
+                    command = activity_command(self._feedback())
+                    if command is not None:
+                        transport.write(command)
                 if lines:
                     last_line = now
                 elif now - last_line > self._idle_timeout_s:
